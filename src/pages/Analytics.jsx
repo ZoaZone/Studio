@@ -1,129 +1,109 @@
-import React from "react";
 import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
-import { BarChart3, TrendingUp, Users, Megaphone, Share2 } from "lucide-react";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from "recharts";
-import PageHeader from "@/components/ui/PageHeader";
-import GlassCard from "@/components/ui/GlassCard";
-import StatCard from "@/components/ui/StatCard";
-
-const COLORS = ["#e040fb", "#ffd700", "#60a5fa", "#34d399", "#f472b6", "#a78bfa"];
+import { BarChart3, TrendingUp, Users, Megaphone, Share2, GitBranch, Zap } from "lucide-react";
 
 export default function Analytics() {
-  const { data: campaigns = [] } = useQuery({ queryKey: ["campaigns"], queryFn: () => base44.entities.MarketingCampaign.list("-created_date", 100) });
-  const { data: contacts = [] } = useQuery({ queryKey: ["contacts"], queryFn: () => base44.entities.MarketingContact.list("-created_date", 200) });
-  const { data: posts = [] } = useQuery({ queryKey: ["posts"], queryFn: () => base44.entities.ScheduledPost.list("-created_date", 100) });
-  const { data: funnels = [] } = useQuery({ queryKey: ["funnels"], queryFn: () => base44.entities.Funnel.list("-created_date", 50) });
+  const {data:campaigns=[]}=useQuery({queryKey:["campaigns_a"],queryFn:()=>base44.entities.MarketingCampaign.list(null,200)});
+  const {data:contacts=[]}=useQuery({queryKey:["contacts_a"],queryFn:()=>base44.entities.MarketingContact.list(null,500)});
+  const {data:leads=[]}=useQuery({queryKey:["leads_a"],queryFn:()=>base44.entities.LeadCapture.list(null,500)});
+  const {data:posts=[]}=useQuery({queryKey:["posts_a"],queryFn:()=>base44.entities.ScheduledPost.list(null,200)});
+  const {data:funnels=[]}=useQuery({queryKey:["funnels_a"],queryFn:()=>base44.entities.Funnel.list(null,50)});
+  const {data:assets=[]}=useQuery({queryKey:["assets_a"],queryFn:()=>base44.entities.ContentAsset.list(null,200)});
 
-  const totalSent = campaigns.reduce((s, c) => s + (c.sent_count || 0), 0);
-  const totalOpens = campaigns.reduce((s, c) => s + (c.open_count || 0), 0);
-  const totalClicks = campaigns.reduce((s, c) => s + (c.click_count || 0), 0);
-  const openRate = totalSent > 0 ? ((totalOpens / totalSent) * 100).toFixed(1) : 0;
-  const ctr = totalSent > 0 ? ((totalClicks / totalSent) * 100).toFixed(1) : 0;
+  const totalSent=campaigns.reduce((s,c)=>s+(c.sent_count||0),0);
+  const totalOpens=campaigns.reduce((s,c)=>s+(c.open_count||0),0);
+  const totalClicks=campaigns.reduce((s,c)=>s+(c.click_count||0),0);
+  const openRate=totalSent>0?((totalOpens/totalSent)*100).toFixed(1):0;
+  const ctr=totalSent>0?((totalClicks/totalSent)*100).toFixed(1):0;
+  const byChannel=campaigns.reduce((acc,c)=>{acc[c.type]=(acc[c.type]||0)+1;return acc;},{});
+  const byLeadSource=leads.reduce((acc,l)=>{acc[l.source]=(acc[l.source]||0)+1;return acc;},{});
+  const byPlatform=posts.reduce((acc,p)=>{acc[p.platform]=(acc[p.platform]||0)+1;return acc;},{});
+  const postedCount=posts.filter(p=>p.status==="posted").length;
+  const aiCount=assets.filter(a=>a.ai_generated).length;
 
-  // Campaign performance by type
-  const campaignByType = ["email", "sms", "whatsapp", "social"].map(t => {
-    const cs = campaigns.filter(c => c.type === t);
-    return { name: t, sent: cs.reduce((s, c) => s + (c.sent_count || 0), 0), opens: cs.reduce((s, c) => s + (c.open_count || 0), 0), clicks: cs.reduce((s, c) => s + (c.click_count || 0), 0) };
-  });
+  const Stat=({Icon,label,value,sub,color="text-fuchsia-400 bg-fuchsia-500/10"})=>(
+    <div className="bg-card border border-border rounded-2xl p-5">
+      <Icon className={`w-5 h-5 ${color.split(" ")[0]} mb-3`}/>
+      <div className="text-2xl font-black text-foreground">{value}</div>
+      <div className="text-sm text-foreground/70 font-medium">{label}</div>
+      {sub&&<div className="text-xs text-muted-foreground mt-0.5">{sub}</div>}
+    </div>
+  );
 
-  // Lead source breakdown
-  const sources = ["website", "social", "ad", "referral", "manual"];
-  const leadBySource = sources.map(s => ({ name: s, value: contacts.filter(c => c.source === s).length })).filter(d => d.value > 0);
-
-  // Funnel conversion rates
-  const funnelData = funnels.map(f => ({ name: f.name?.slice(0, 15) || "Unnamed", rate: f.conversion_rate || 0 }));
-
-  // Social engagement
-  const engagementData = posts.filter(p => p.status === "posted").slice(0, 10).map(p => ({
-    name: p.platform?.slice(0, 4) || "",
-    likes: p.engagement_likes || 0,
-    comments: p.engagement_comments || 0,
-    shares: p.engagement_shares || 0,
-  }));
+  const Bar=({label,value,total,color="bg-gradient-to-r from-fuchsia-500 to-purple-600"})=>(
+    <div className="flex items-center gap-3">
+      <span className="text-xs text-muted-foreground capitalize w-28 truncate">{label.replace(/_/g," ")}</span>
+      <div className="flex-1 bg-muted rounded-full h-1.5"><div className={`${color} h-1.5 rounded-full`} style={{width:`${Math.min(total>0?(value/total)*100:0,100)}%`}}/></div>
+      <span className="text-xs font-semibold text-foreground w-6 text-right">{value}</span>
+    </div>
+  );
 
   return (
-    <div className="p-6 lg:p-8 max-w-7xl mx-auto">
-      <PageHeader title="Analytics" subtitle="Campaign performance and marketing insights" />
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <StatCard label="Total Sent" value={totalSent} icon={Megaphone} color="magenta" />
-        <StatCard label="Open Rate" value={`${openRate}%`} icon={TrendingUp} color="gold" />
-        <StatCard label="Click Rate" value={`${ctr}%`} icon={BarChart3} color="blue" />
-        <StatCard label="Total Contacts" value={contacts.length} icon={Users} color="green" />
+    <div className="max-w-6xl mx-auto space-y-6">
+      <div>
+        <h1 className="text-2xl font-black text-foreground flex items-center gap-2"><BarChart3 className="w-6 h-6 text-fuchsia-400"/>Analytics</h1>
+        <p className="text-muted-foreground text-sm mt-0.5">Performance across campaigns, social, funnels and leads</p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Campaign Performance */}
-        <GlassCard>
-          <h3 className="text-sm font-bold text-white mb-4">Campaign Performance by Channel</h3>
-          <ResponsiveContainer width="100%" height={250}>
-            <BarChart data={campaignByType}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-              <XAxis dataKey="name" tick={{ fill: "rgba(255,255,255,0.4)", fontSize: 12 }} />
-              <YAxis tick={{ fill: "rgba(255,255,255,0.4)", fontSize: 12 }} />
-              <Tooltip contentStyle={{ background: "#1a1a1a", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "8px", color: "#fff" }} />
-              <Bar dataKey="sent" fill="#e040fb" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="opens" fill="#ffd700" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="clicks" fill="#60a5fa" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </GlassCard>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <Stat Icon={Users} label="Total Contacts" value={contacts.length} sub={`${contacts.filter(c=>c.opted_in_email).length} email opt-in`}/>
+        <Stat Icon={Megaphone} label="Campaigns" value={campaigns.length} sub={`${campaigns.filter(c=>c.status==="running").length} active`} color="text-purple-400 bg-purple-500/10"/>
+        <Stat Icon={Zap} label="Messages Sent" value={totalSent.toLocaleString()} color="text-pink-400 bg-pink-500/10"/>
+        <Stat Icon={TrendingUp} label="Total Leads" value={leads.length} sub={`${leads.filter(l=>l.funnel_id).length} in funnels`} color="text-amber-400 bg-amber-500/10"/>
+      </div>
 
-        {/* Lead Source */}
-        <GlassCard>
-          <h3 className="text-sm font-bold text-white mb-4">Lead Source Breakdown</h3>
-          {leadBySource.length === 0 ? (
-            <div className="flex items-center justify-center h-[250px] text-white/30 text-sm">No lead data</div>
-          ) : (
-            <ResponsiveContainer width="100%" height={250}>
-              <PieChart>
-                <Pie data={leadBySource} cx="50%" cy="50%" innerRadius={60} outerRadius={90} dataKey="value" label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
-                  {leadBySource.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-                </Pie>
-                <Tooltip contentStyle={{ background: "#1a1a1a", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "8px", color: "#fff" }} />
-              </PieChart>
-            </ResponsiveContainer>
-          )}
-        </GlassCard>
+      <div className="grid md:grid-cols-2 gap-4">
+        <div className="bg-card border border-border rounded-2xl p-5">
+          <h3 className="font-semibold text-foreground mb-4">Campaign Performance</h3>
+          <div className="grid grid-cols-2 gap-3 mb-5">
+            {[{l:"Open Rate",v:`${openRate}%`,c:"text-emerald-400"},{l:"Click-Through",v:`${ctr}%`,c:"text-blue-400"},{l:"Total Opens",v:totalOpens.toLocaleString(),c:"text-fuchsia-400"},{l:"Total Clicks",v:totalClicks.toLocaleString(),c:"text-amber-400"}].map(s=>(
+              <div key={s.l} className="p-3 bg-muted/20 rounded-xl">
+                <div className={`text-xl font-black ${s.c}`}>{s.v}</div>
+                <div className="text-xs text-muted-foreground">{s.l}</div>
+              </div>
+            ))}
+          </div>
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">By Channel</p>
+          <div className="space-y-2">
+            {Object.entries(byChannel).map(([ch,cnt])=><Bar key={ch} label={ch} value={cnt} total={campaigns.length}/>)}
+            {Object.keys(byChannel).length===0&&<p className="text-muted-foreground text-xs">No campaigns yet</p>}
+          </div>
+        </div>
 
-        {/* Funnel Conversion */}
-        <GlassCard>
-          <h3 className="text-sm font-bold text-white mb-4">Funnel Conversion Rates</h3>
-          {funnelData.length === 0 ? (
-            <div className="flex items-center justify-center h-[250px] text-white/30 text-sm">No funnel data</div>
-          ) : (
-            <ResponsiveContainer width="100%" height={250}>
-              <BarChart data={funnelData} layout="vertical">
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                <XAxis type="number" tick={{ fill: "rgba(255,255,255,0.4)", fontSize: 12 }} />
-                <YAxis dataKey="name" type="category" tick={{ fill: "rgba(255,255,255,0.4)", fontSize: 11 }} width={100} />
-                <Tooltip contentStyle={{ background: "#1a1a1a", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "8px", color: "#fff" }} />
-                <Bar dataKey="rate" fill="#e040fb" radius={[0, 4, 4, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          )}
-        </GlassCard>
+        <div className="bg-card border border-border rounded-2xl p-5">
+          <h3 className="font-semibold text-foreground mb-4">Lead Sources</h3>
+          <div className="space-y-2 mb-5">
+            {Object.entries(byLeadSource).sort((a,b)=>b[1]-a[1]).map(([src,cnt])=><Bar key={src} label={src} value={cnt} total={leads.length} color="bg-gradient-to-r from-amber-500 to-orange-600"/>)}
+            {leads.length===0&&<p className="text-muted-foreground text-xs">No leads yet</p>}
+          </div>
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Social Media</p>
+          <div className="grid grid-cols-3 gap-2">
+            {[{l:"Total Posts",v:posts.length},{l:"Posted",v:postedCount},{l:"AI Assets",v:aiCount}].map(s=>(
+              <div key={s.l} className="text-center p-2 bg-muted/20 rounded-xl">
+                <div className="text-lg font-black text-foreground">{s.v}</div>
+                <div className="text-[10px] text-muted-foreground">{s.l}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
 
-        {/* Social Engagement */}
-        <GlassCard>
-          <h3 className="text-sm font-bold text-white mb-4">Social Post Engagement</h3>
-          {engagementData.length === 0 ? (
-            <div className="flex items-center justify-center h-[250px] text-white/30 text-sm">No post engagement data</div>
-          ) : (
-            <ResponsiveContainer width="100%" height={250}>
-              <LineChart data={engagementData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                <XAxis dataKey="name" tick={{ fill: "rgba(255,255,255,0.4)", fontSize: 12 }} />
-                <YAxis tick={{ fill: "rgba(255,255,255,0.4)", fontSize: 12 }} />
-                <Tooltip contentStyle={{ background: "#1a1a1a", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "8px", color: "#fff" }} />
-                <Line type="monotone" dataKey="likes" stroke="#e040fb" strokeWidth={2} />
-                <Line type="monotone" dataKey="comments" stroke="#ffd700" strokeWidth={2} />
-                <Line type="monotone" dataKey="shares" stroke="#60a5fa" strokeWidth={2} />
-              </LineChart>
-            </ResponsiveContainer>
-          )}
-        </GlassCard>
+      <div className="bg-card border border-border rounded-2xl p-5">
+        <h3 className="font-semibold text-foreground mb-4">Funnels</h3>
+        {funnels.length===0?<p className="text-muted-foreground text-sm">No funnels yet</p>:(
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {funnels.map(f=>(
+              <div key={f.id} className="p-4 border border-border rounded-xl">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-sm font-semibold text-foreground">{f.name}</p>
+                  <span className="text-xs text-emerald-400 font-semibold">{f.conversion_rate||0}%</span>
+                </div>
+                <div className="text-xs text-muted-foreground mb-2">{f.total_leads||0} leads → {f.converted_leads||0} converted</div>
+                <div className="bg-muted rounded-full h-1.5"><div className="bg-gradient-to-r from-emerald-500 to-teal-600 h-1.5 rounded-full" style={{width:`${Math.min(f.conversion_rate||0,100)}%`}}/></div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
