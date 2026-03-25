@@ -1,114 +1,165 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import {
-  LayoutDashboard, Users, Megaphone, Share2, Palette,
-  PenTool, FileText, Globe, GitBranch, UserPlus,
-  MailCheck, FolderOpen, MonitorSmartphone, BarChart3,
-  Settings, CreditCard, Sparkles, Search, Menu, X,
-  ChevronLeft, Image
+  LayoutDashboard, Users, Megaphone, Share2, Sparkles, PenTool,
+  FileText, Search, GitBranch, UserPlus, MailCheck, Image, Globe,
+  BarChart3, Settings, CreditCard, ChevronDown, LogOut, Menu, X,
+  Lock, Bell, HelpCircle, ShieldCheck, Zap, Building2, Share
 } from "lucide-react";
+import { base44 } from "@/api/base44Client";
 
-const navItems = [
-  { label: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
-  { label: "Contacts", icon: Users, path: "/contacts" },
-  { label: "Campaigns", icon: Megaphone, path: "/campaigns" },
-  { label: "Social Hub", icon: Share2, path: "/social-hub" },
-  { label: "Media Studio", icon: Sparkles, path: "/media-studio" },
-  { label: "Ad Creator", icon: PenTool, path: "/ad-creator" },
-  { label: "Script Writer", icon: FileText, path: "/script-writer" },
-  { label: "Website Scanner", icon: Search, path: "/website-scanner" },
-  { label: "Funnel Builder", icon: GitBranch, path: "/funnel-builder" },
-  { label: "Lead Capture", icon: UserPlus, path: "/lead-capture" },
-  { label: "Follow Up", icon: MailCheck, path: "/follow-up" },
-  { label: "Media Library", icon: Image, path: "/media-library" },
-  { label: "Web Projects", icon: Globe, path: "/web-projects" },
-  { label: "Analytics", icon: BarChart3, path: "/analytics" },
-  { label: "Settings", icon: Settings, path: "/settings" },
-  { label: "Billing", icon: CreditCard, path: "/billing" },
+const M_LOGO = "https://media.base44.com/images/public/69b1f1d60b1fb9d791fddc64/d1aa347a6_generated_image.png";
+
+const NAV_SECTIONS = [
+  {
+    label: "OVERVIEW",
+    items: [
+      { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
+      { to: "/contacts",  icon: Users,           label: "Contacts" },
+    ],
+  },
+  {
+    label: "CAMPAIGNS",
+    items: [
+      { to: "/campaigns",  icon: Megaphone, label: "Campaigns" },
+      { to: "/social-hub", icon: Share2,    label: "Social Hub" },
+    ],
+  },
+  {
+    label: "AI STUDIO",
+    items: [
+      { to: "/media-studio",    icon: Sparkles, label: "Media Studio" },
+      { to: "/ad-creator",      icon: PenTool,  label: "Ad Creator",   minTier: 2 },
+      { to: "/script-writer",   icon: FileText, label: "Script Writer", minTier: 2 },
+      { to: "/website-scanner", icon: Search,   label: "Website Scanner", minTier: 2 },
+      { to: "/media-library",   icon: Image,    label: "Media Library" },
+    ],
+  },
+  {
+    label: "FUNNELS & LEADS",
+    items: [
+      { to: "/funnel-builder", icon: GitBranch, label: "Funnel Builder" },
+      { to: "/lead-capture",   icon: UserPlus,  label: "Lead Capture" },
+      { to: "/follow-up",      icon: MailCheck, label: "Follow-Up" },
+    ],
+  },
+  {
+    label: "PROJECTS",
+    items: [
+      { to: "/web-projects", icon: Globe, label: "Web & App Projects" },
+      { to: "/analytics",    icon: BarChart3, label: "Analytics" },
+    ],
+  },
+  {
+    label: "ACCOUNT",
+    items: [
+      { to: "/billing",       icon: CreditCard,  label: "Billing" },
+      { to: "/settings",      icon: Settings,    label: "Settings" },
+      { to: "/notifications", icon: Bell,        label: "Notifications" },
+      { to: "/help",          icon: HelpCircle,  label: "Help Center" },
+    ],
+  },
 ];
 
-export default function Sidebar() {
+export default function Sidebar({ userTier = 0, isAdmin = false }) {
   const location = useLocation();
-  const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState({});
 
-  const NavContent = () => (
+  const toggle = (label) => setCollapsed(p => ({ ...p, [label]: !p[label] }));
+  const logout = () => base44.auth.logout("/");
+
+  const navContent = (
     <div className="flex flex-col h-full">
       {/* Logo */}
-      <div className="flex items-center justify-between px-4 py-5 border-b border-white/5">
-        <Link to="/dashboard" className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl gradient-magenta flex items-center justify-center shadow-lg shadow-magenta/20">
-            <span className="text-white font-black text-sm">M</span>
+      <div className="p-5 border-b border-sidebar-border">
+        <Link to="/dashboard" className="flex items-center gap-3" onClick={() => setMobileOpen(false)}>
+          <img src={M_LOGO} alt="M" className="h-9 w-9 rounded-xl object-cover shadow-lg shadow-fuchsia-500/20" onError={(e) => e.target.style.display="none"} />
+          <div>
+            <span className="text-base font-black bg-gradient-to-r from-fuchsia-400 to-purple-400 bg-clip-text text-transparent tracking-tight">MARKETER</span>
+            <div className="flex items-center gap-1 mt-0.5">
+              <Zap className="w-2.5 h-2.5 text-fuchsia-400" />
+              <span className="text-[9px] text-muted-foreground font-medium tracking-wide">AI MARKETING OS</span>
+            </div>
           </div>
-          {!collapsed && (
-            <span className="text-lg font-black tracking-wider gradient-text">Marketer</span>
-          )}
         </Link>
-        <button
-          onClick={() => setCollapsed(!collapsed)}
-          className="hidden lg:flex items-center justify-center w-7 h-7 rounded-md hover:bg-white/5 text-white/40 hover:text-white/70 transition-colors"
-        >
-          <ChevronLeft className={`w-4 h-4 transition-transform ${collapsed ? "rotate-180" : ""}`} />
-        </button>
       </div>
 
-      {/* Nav Items */}
-      <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-0.5">
-        {navItems.map((item) => {
-          const isActive = location.pathname === item.path;
-          return (
-            <Link
-              key={item.path}
-              to={item.path}
-              onClick={() => setMobileOpen(false)}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 group ${
-                isActive
-                  ? "bg-magenta/15 text-magenta"
-                  : "text-white/50 hover:text-white/80 hover:bg-white/5"
-              }`}
-            >
-              <item.icon className={`w-[18px] h-[18px] flex-shrink-0 ${isActive ? "text-magenta" : "text-white/40 group-hover:text-white/70"}`} />
-              {!collapsed && (
-                <span className="text-sm font-medium truncate">{item.label}</span>
-              )}
-              {isActive && !collapsed && (
-                <div className="ml-auto w-1.5 h-1.5 rounded-full bg-magenta" />
-              )}
+      {/* Nav */}
+      <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
+        {NAV_SECTIONS.map(section => (
+          <div key={section.label} className="mb-2">
+            <button onClick={() => toggle(section.label)}
+              className="flex items-center justify-between w-full px-3 py-1.5 text-[9px] font-bold tracking-widest text-muted-foreground/50 uppercase hover:text-muted-foreground transition-colors">
+              {section.label}
+              <ChevronDown className={`w-3 h-3 transition-transform ${collapsed[section.label] ? "-rotate-90" : ""}`} />
+            </button>
+            {!collapsed[section.label] && (
+              <div className="mt-0.5 space-y-0.5">
+                {section.items.map(item => {
+                  const isActive = location.pathname === item.to;
+                  const isLocked = item.minTier && userTier < item.minTier;
+                  return (
+                    <Link key={item.to} to={item.to} onClick={() => setMobileOpen(false)}
+                      className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all group ${
+                        isActive
+                          ? "bg-fuchsia-500/10 text-fuchsia-400 border border-fuchsia-500/20"
+                          : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-foreground"
+                      }`}>
+                      <item.icon className={`w-4 h-4 flex-shrink-0 ${isActive ? "text-fuchsia-400" : ""}`} />
+                      <span className="flex-1 truncate">{item.label}</span>
+                      {isLocked && <Lock className="w-3 h-3 text-muted-foreground/30" />}
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        ))}
+
+        {/* Agency/Affiliate — Agency tier */}
+        {userTier >= 3 && (
+          <div className="mt-2 pt-2 border-t border-sidebar-border space-y-0.5">
+            <Link to="/affiliate" onClick={() => setMobileOpen(false)}
+              className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all ${location.pathname === "/affiliate" ? "bg-fuchsia-500/10 text-fuchsia-400 border border-fuchsia-500/20" : "text-sidebar-foreground hover:bg-sidebar-accent"}`}>
+              <Share className="w-4 h-4" /> Affiliate Portal
             </Link>
-          );
-        })}
+            <Link to="/agency" onClick={() => setMobileOpen(false)}
+              className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all ${location.pathname === "/agency" ? "bg-fuchsia-500/10 text-fuchsia-400 border border-fuchsia-500/20" : "text-sidebar-foreground hover:bg-sidebar-accent"}`}>
+              <Building2 className="w-4 h-4" /> Agency Portal
+            </Link>
+          </div>
+        )}
+
+        {/* Admin */}
+        {isAdmin && (
+          <div className="mt-2 pt-2 border-t border-sidebar-border">
+            <Link to="/admin" onClick={() => setMobileOpen(false)}
+              className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all ${location.pathname === "/admin" ? "bg-fuchsia-500/10 text-fuchsia-400 border border-fuchsia-500/20" : "text-sidebar-foreground hover:bg-sidebar-accent"}`}>
+              <ShieldCheck className="w-4 h-4" /> Admin Dashboard
+            </Link>
+          </div>
+        )}
       </nav>
+
+      {/* Logout */}
+      <div className="p-3 border-t border-sidebar-border">
+        <button onClick={logout} className="flex items-center gap-3 w-full px-3 py-2 rounded-lg text-sm font-medium text-sidebar-foreground hover:bg-red-500/10 hover:text-red-400 transition-all">
+          <LogOut className="w-4 h-4" /> Log Out
+        </button>
+      </div>
     </div>
   );
 
   return (
     <>
-      {/* Mobile toggle */}
-      <button
-        onClick={() => setMobileOpen(true)}
-        className="lg:hidden fixed top-4 left-4 z-50 w-10 h-10 rounded-xl glass flex items-center justify-center text-white/70"
-      >
-        <Menu className="w-5 h-5" />
+      <button onClick={() => setMobileOpen(!mobileOpen)}
+        className="lg:hidden fixed top-4 left-4 z-50 w-10 h-10 bg-card border border-border rounded-lg flex items-center justify-center shadow-sm">
+        {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
       </button>
-
-      {/* Mobile overlay */}
-      {mobileOpen && (
-        <div className="lg:hidden fixed inset-0 z-50 bg-black/60" onClick={() => setMobileOpen(false)}>
-          <div className="w-64 h-full bg-dark-navy border-r border-white/5" onClick={(e) => e.stopPropagation()}>
-            <button
-              onClick={() => setMobileOpen(false)}
-              className="absolute top-4 right-4 text-white/40 hover:text-white"
-            >
-              <X className="w-5 h-5" />
-            </button>
-            <NavContent />
-          </div>
-        </div>
-      )}
-
-      {/* Desktop sidebar */}
-      <aside className={`hidden lg:flex flex-col h-screen bg-dark-navy border-r border-white/5 transition-all duration-300 ${collapsed ? "w-16" : "w-60"}`}>
-        <NavContent />
+      {mobileOpen && <div className="lg:hidden fixed inset-0 bg-background/80 backdrop-blur-sm z-40" onClick={() => setMobileOpen(false)} />}
+      <aside className={`fixed top-0 left-0 h-full w-64 bg-sidebar border-r border-sidebar-border z-40 transition-transform duration-200 lg:translate-x-0 ${mobileOpen ? "translate-x-0" : "-translate-x-full"}`}>
+        {navContent}
       </aside>
     </>
   );
