@@ -1,176 +1,122 @@
-import React, { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
-import { Search, Globe, Loader2, FileText, Tag, Zap, Users } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import PageHeader from "@/components/ui/PageHeader";
-import GlassCard from "@/components/ui/GlassCard";
+import { Globe, Zap, Sparkles, Loader2, ArrowRight, Tag, TrendingUp, Building2 } from "lucide-react";
 
 export default function WebsiteScanner() {
+  const qc = useQueryClient();
   const [url, setUrl] = useState("");
   const [scanning, setScanning] = useState(false);
-  const [selectedScan, setSelectedScan] = useState(null);
-  const qc = useQueryClient();
+  const [activeId, setActiveId] = useState(null);
+  const [generating, setGenerating] = useState(null);
+  const [generated, setGenerated] = useState({});
 
-  const { data: scans = [] } = useQuery({
-    queryKey: ["scans"],
-    queryFn: () => base44.entities.WebsiteScan.list("-created_date", 50),
-  });
+  const {data:scans=[],isLoading}=useQuery({queryKey:["scans"],queryFn:()=>base44.entities.WebsiteScan.list("-created_date",20)});
 
-  const scanWebsite = async () => {
+  const scan = async () => {
     if (!url) return;
+    const cleanUrl = url.startsWith("http") ? url : "https://"+url;
     setScanning(true);
-
-    const scan = await base44.entities.WebsiteScan.create({
-      website_url: url,
-      scan_status: "scanning",
-      scan_at: new Date().toISOString(),
-    });
-
-    const res = await base44.integrations.Core.InvokeLLM({
-      prompt: `Analyze this website URL: ${url}. Provide a comprehensive analysis including: business summary, services offered, main keywords, tone of voice, and potential competitors. Be specific and detailed.`,
-      response_json_schema: {
-        type: "object",
-        properties: {
-          business_summary: { type: "string" },
-          services_found: { type: "array", items: { type: "string" } },
-          keywords_found: { type: "array", items: { type: "string" } },
-          tone: { type: "string" },
-          competitors: { type: "array", items: { type: "string" } },
-        },
-      },
-      add_context_from_internet: true,
-    });
-
-    await base44.entities.WebsiteScan.update(scan.id, {
-      scan_status: "completed",
-      business_summary: res.business_summary,
-      services_found: res.services_found || [],
-      keywords_found: res.keywords_found || [],
-      tone: res.tone,
-      competitors: res.competitors || [],
-      pages_scanned: 1,
-    });
-
-    qc.invalidateQueries({ queryKey: ["scans"] });
+    try {
+      let result;
+      try { const res = await base44.functions.invoke("scanWebsite",{url:cleanUrl}); result = res?.data||res; }
+      catch(e) { result = await base44.entities.WebsiteScan.create({website_url:cleanUrl,scan_status:"pending",pages_scanned:0,scan_at:new Date().toISOString()}); }
+      qc.invalidateQueries(["scans"]);
+      setActiveId(result?.id);
+      setUrl("");
+    } catch(e) { alert("Scan error: "+e.message); }
     setScanning(false);
-    setUrl("");
   };
 
+  const generateFromScan = async (scan, type) => {
+    setGenerating(type);
+    try {
+      const prompt = `Business: ${scan.business_summary||""}. Services: ${(scan.services_found||[]).join(", ")}. Keywords: ${(scan.keywords_found||[]).join(", ")}.`;
+      const res = await base44.functions.invoke("generateMediaContent",{type,prompt,platform:"General",tone:scan.tone||"Professional"});
+      const content = res?.data?.text||res?.text||"Generated content.";
+      await base44.entities.ContentAsset.create({type,title:`${type} from ${scan.website_url}`,content,ai_generated:true,prompt_used:prompt});
+      setGenerated(p=>({...p,[type]:content}));
+      qc.invalidateQueries(["media_library"]);
+    } catch(e) { setGenerated(p=>({...p,[type]:"Error: "+e.message})); }
+    setGenerating(null);
+  };
+
+  const activeScan = scans.find(s=>s.id===activeId)||scans[0];
+
   return (
-    <div className="p-6 lg:p-8 max-w-6xl mx-auto">
-      <PageHeader title="Website Scanner" subtitle="Scan any website to extract business insights" />
+    <div className="max-w-5xl mx-auto space-y-5">
+      <div>
+        <h1 className="text-2xl font-black text-foreground flex items-center gap-2"><Globe className="w-6 h-6 text-fuchsia-400"/>Website Scanner</h1>
+        <p className="text-muted-foreground text-sm mt-0.5">Scan any website to auto-generate captions, ad copy, scripts and more</p>
+      </div>
 
-      {/* Scanner */}
-      <GlassCard className="mb-8">
-        <div className="flex flex-col sm:flex-row gap-3">
+      <div className="bg-card border border-fuchsia-500/20 rounded-2xl p-6">
+        <h3 className="font-semibold text-foreground mb-3">Scan a Website</h3>
+        <div className="flex gap-3">
           <div className="relative flex-1">
-            <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
-            <Input
-              placeholder="Enter website URL (e.g., example.com)"
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              className="pl-10 bg-white/5 border-white/10 text-white placeholder:text-white/30"
-              onKeyDown={(e) => e.key === "Enter" && scanWebsite()}
-            />
+            <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground"/>
+            <input value={url} onChange={e=>setUrl(e.target.value)} onKeyDown={e=>e.key==="Enter"&&scan()} placeholder="aevoice.ai or https://client-site.com" className="w-full h-10 pl-9 pr-3 rounded-xl border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"/>
           </div>
-          <Button onClick={scanWebsite} disabled={!url || scanning} className="gradient-magenta border-0 text-white hover:opacity-90">
-            {scanning ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Scanning...</> : <><Search className="w-4 h-4 mr-2" /> Scan Website</>}
-          </Button>
+          <button onClick={scan} disabled={scanning||!url} className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-fuchsia-500 to-purple-600 text-white text-sm font-semibold hover:opacity-90 disabled:opacity-60 shadow-lg">
+            {scanning?<><Loader2 className="w-4 h-4 animate-spin"/>Scanning…</>:<><Zap className="w-4 h-4"/>Scan</>}
+          </button>
         </div>
-      </GlassCard>
+        <p className="text-xs text-muted-foreground mt-2">AI extracts: business summary · services · keywords · tone · competitors</p>
+      </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Scan List */}
-        <div>
-          <h3 className="text-sm font-bold text-white mb-4">Previous Scans</h3>
-          <div className="space-y-3">
-            {scans.length === 0 && <p className="text-xs text-white/30">No scans yet</p>}
-            {scans.map(s => (
-              <GlassCard
-                key={s.id}
-                onClick={() => setSelectedScan(s)}
-                className={`cursor-pointer ${selectedScan?.id === s.id ? "border-magenta/30" : ""}`}
-              >
-                <p className="text-sm font-medium text-white truncate">{s.website_url}</p>
-                <div className="flex items-center gap-2 mt-2">
-                  <Badge variant="outline" className={`text-xs ${s.scan_status === "completed" ? "text-emerald-400 border-emerald-400/20" : "text-yellow-400 border-yellow-400/20"}`}>
-                    {s.scan_status}
-                  </Badge>
-                </div>
-              </GlassCard>
+      {scans.length > 0 && (
+        <div className="grid md:grid-cols-3 gap-5">
+          <div className="space-y-2">
+            <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wide">Recent Scans</h3>
+            {scans.map(s=>(
+              <div key={s.id} onClick={()=>setActiveId(s.id)}
+                className={`p-3 rounded-xl border cursor-pointer transition-all text-sm ${activeScan?.id===s.id?"border-fuchsia-500/50 bg-fuchsia-500/8":"border-border bg-card hover:bg-muted/20"}`}>
+                <p className="font-medium text-foreground truncate">{s.website_url?.replace(/https?:\/\//,"")}</p>
+                <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${s.scan_status==="completed"?"bg-emerald-500/10 text-emerald-400":"bg-amber-500/10 text-amber-400"}`}>{s.scan_status}</span>
+              </div>
             ))}
           </div>
-        </div>
 
-        {/* Scan Details */}
-        <div className="lg:col-span-2">
-          {!selectedScan ? (
-            <GlassCard className="text-center py-16">
-              <Search className="w-10 h-10 text-white/10 mx-auto mb-3" />
-              <p className="text-white/30 text-sm">Select a scan to view details</p>
-            </GlassCard>
-          ) : (
-            <div className="space-y-4">
-              <GlassCard>
-                <div className="flex items-center gap-2 mb-3">
-                  <FileText className="w-4 h-4 text-magenta" />
-                  <h3 className="text-sm font-bold text-white">Business Summary</h3>
+          <div className="md:col-span-2 space-y-4">
+            {activeScan && (
+              <>
+                <div className="bg-card border border-border rounded-2xl p-5 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-semibold text-foreground">{activeScan.website_url?.replace(/https?:\/\//,"")}</h3>
+                    <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${activeScan.scan_status==="completed"?"bg-emerald-500/10 text-emerald-400":"bg-amber-500/10 text-amber-400"}`}>{activeScan.scan_status}</span>
+                  </div>
+                  {activeScan.business_summary&&<p className="text-sm text-foreground leading-relaxed">{activeScan.business_summary}</p>}
+                  <div className="grid grid-cols-2 gap-4">
+                    {activeScan.services_found?.length>0&&<div><p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Services</p><div className="flex flex-wrap gap-1">{activeScan.services_found.map(s=><span key={s} className="text-xs px-2 py-0.5 bg-blue-500/10 text-blue-400 rounded-full">{s}</span>)}</div></div>}
+                    {activeScan.keywords_found?.length>0&&<div><p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Keywords</p><div className="flex flex-wrap gap-1">{activeScan.keywords_found.slice(0,6).map(k=><span key={k} className="text-xs px-2 py-0.5 bg-fuchsia-500/10 text-fuchsia-400 rounded-full">{k}</span>)}</div></div>}
+                  </div>
                 </div>
-                <p className="text-sm text-white/60 leading-relaxed">{selectedScan.business_summary || "No summary available"}</p>
-              </GlassCard>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <GlassCard>
-                  <div className="flex items-center gap-2 mb-3">
-                    <Zap className="w-4 h-4 text-gold" />
-                    <h3 className="text-sm font-bold text-white">Services</h3>
-                  </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {(selectedScan.services_found || []).map((s, i) => (
-                      <Badge key={i} variant="outline" className="text-xs border-white/10 text-white/50">{s}</Badge>
-                    ))}
-                    {(!selectedScan.services_found || selectedScan.services_found.length === 0) && <p className="text-xs text-white/30">None found</p>}
-                  </div>
-                </GlassCard>
-
-                <GlassCard>
-                  <div className="flex items-center gap-2 mb-3">
-                    <Tag className="w-4 h-4 text-blue-400" />
-                    <h3 className="text-sm font-bold text-white">Keywords</h3>
-                  </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {(selectedScan.keywords_found || []).map((k, i) => (
-                      <Badge key={i} className="bg-magenta/10 text-magenta border-magenta/20 text-xs">{k}</Badge>
-                    ))}
-                    {(!selectedScan.keywords_found || selectedScan.keywords_found.length === 0) && <p className="text-xs text-white/30">None found</p>}
-                  </div>
-                </GlassCard>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <GlassCard>
-                  <h3 className="text-sm font-bold text-white mb-2">Tone</h3>
-                  <p className="text-sm text-white/60">{selectedScan.tone || "—"}</p>
-                </GlassCard>
-                <GlassCard>
-                  <div className="flex items-center gap-2 mb-2">
-                    <Users className="w-4 h-4 text-purple-400" />
-                    <h3 className="text-sm font-bold text-white">Competitors</h3>
-                  </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {(selectedScan.competitors || []).map((c, i) => (
-                      <Badge key={i} variant="outline" className="text-xs border-white/10 text-white/50">{c}</Badge>
+                {activeScan.scan_status==="completed"&&(
+                  <div className="bg-card border border-border rounded-2xl p-5">
+                    <h3 className="font-semibold text-foreground mb-3 flex items-center gap-2"><Sparkles className="w-4 h-4 text-fuchsia-400"/>Generate Content from Scan</h3>
+                    <div className="grid grid-cols-2 gap-2">
+                      {[{type:"caption",label:"Social Caption"},{type:"ad_copy",label:"Ad Copy"},{type:"hashtag_set",label:"Hashtag Set"},{type:"email_template",label:"Email Template"}].map(g=>(
+                        <button key={g.type} onClick={()=>generateFromScan(activeScan,g.type)} disabled={!!generating}
+                          className="flex items-center justify-between p-3 rounded-xl border border-border hover:border-fuchsia-500/30 hover:bg-fuchsia-500/5 transition-all text-sm font-medium text-foreground disabled:opacity-60">
+                          {g.label}
+                          {generating===g.type?<Loader2 className="w-3.5 h-3.5 animate-spin text-fuchsia-400"/>:<ArrowRight className="w-3.5 h-3.5 text-muted-foreground"/>}
+                        </button>
+                      ))}
+                    </div>
+                    {Object.entries(generated).map(([type,content])=>(
+                      <div key={type} className="mt-3 p-3 bg-muted/20 rounded-xl border border-border">
+                        <p className="text-xs font-semibold text-muted-foreground uppercase mb-2">{type.replace("_"," ")}</p>
+                        <pre className="text-xs text-foreground whitespace-pre-wrap font-sans">{content}</pre>
+                      </div>
                     ))}
                   </div>
-                </GlassCard>
-              </div>
-            </div>
-          )}
+                )}
+              </>
+            )}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
