@@ -1,174 +1,189 @@
-import React, { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
-import { GitBranch, Plus, Trash2, ArrowDown, Mail, MessageSquare, Phone, Clock, Tag, ArrowRight } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Badge } from "@/components/ui/badge";
-import { Label } from "@/components/ui/label";
-import PageHeader from "@/components/ui/PageHeader";
-import GlassCard from "@/components/ui/GlassCard";
+import { GitBranch, Plus, ArrowDown, Loader2, X, Trash2 } from "lucide-react";
 
-const actionIcons = { email: Mail, sms: Phone, whatsapp: MessageSquare, wait: Clock, tag: Tag, move_stage: ArrowRight };
+const ACTION_COLORS = { email:"bg-blue-500/10 text-blue-400", sms:"bg-emerald-500/10 text-emerald-400", whatsapp:"bg-amber-500/10 text-amber-400", wait:"bg-muted text-muted-foreground", tag:"bg-purple-500/10 text-purple-400", move_stage:"bg-fuchsia-500/10 text-fuchsia-400" };
 
 export default function FunnelBuilder() {
-  const [showCreate, setShowCreate] = useState(false);
-  const [showStage, setShowStage] = useState(false);
-  const [selectedFunnel, setSelectedFunnel] = useState(null);
-  const [funnelForm, setFunnelForm] = useState({ name: "", description: "", status: "draft" });
-  const [stageForm, setStageForm] = useState({ name: "", action_type: "email", stage_order: 0 });
   const qc = useQueryClient();
+  const [selected, setSelected] = useState(null);
+  const [showNewFunnel, setShowNewFunnel] = useState(false);
+  const [showNewStage, setShowNewStage] = useState(false);
+  const [funnelForm, setFunnelForm] = useState({ name:"", description:"" });
+  const [stageForm, setStageForm] = useState({ name:"", action_type:"email" });
+  const [saving, setSaving] = useState(false);
 
-  const { data: funnels = [] } = useQuery({
-    queryKey: ["funnels"],
-    queryFn: () => base44.entities.Funnel.list("-created_date", 50),
-  });
-
+  const { data: funnels = [], isLoading } = useQuery({ queryKey:["funnels"], queryFn:()=>base44.entities.Funnel.list("-created_date",50) });
   const { data: stages = [] } = useQuery({
-    queryKey: ["funnel-stages", selectedFunnel?.id],
-    queryFn: () => selectedFunnel ? base44.entities.FunnelStage.filter({ funnel_id: selectedFunnel.id }, "stage_order") : Promise.resolve([]),
-    enabled: !!selectedFunnel,
+    queryKey:["funnel_stages", selected?.id],
+    queryFn:()=>base44.entities.FunnelStage.filter({ funnel_id: selected?.id },"stage_order",20),
+    enabled:!!selected?.id,
   });
+  const { data: leads = [] } = useQuery({ queryKey:["leads_count"], queryFn:()=>base44.entities.LeadCapture.list(null,200) });
 
-  const createFunnel = useMutation({
-    mutationFn: (d) => base44.entities.Funnel.create(d),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["funnels"] }); setShowCreate(false); },
-  });
+  const saveFunnel = async () => {
+    if (!funnelForm.name) return;
+    setSaving(true);
+    const f = await base44.entities.Funnel.create({ ...funnelForm, status:"active", total_leads:0, converted_leads:0, conversion_rate:0 });
+    qc.invalidateQueries(["funnels"]);
+    setSelected(f); setFunnelForm({ name:"", description:"" }); setShowNewFunnel(false);
+    setSaving(false);
+  };
 
-  const createStage = useMutation({
-    mutationFn: (d) => base44.entities.FunnelStage.create(d),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["funnel-stages"] }); setShowStage(false); },
-  });
+  const saveStage = async () => {
+    if (!stageForm.name || !selected) return;
+    setSaving(true);
+    await base44.entities.FunnelStage.create({ ...stageForm, funnel_id:selected.id, stage_order:stages.length+1, entry_count:0, exit_count:0 });
+    qc.invalidateQueries(["funnel_stages"]);
+    setStageForm({ name:"", action_type:"email" }); setShowNewStage(false);
+    setSaving(false);
+  };
 
-  const deleteFunnel = useMutation({
-    mutationFn: (id) => base44.entities.Funnel.delete(id),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["funnels"] }); setSelectedFunnel(null); },
-  });
+  const deleteFunnel = async (id) => {
+    if (!confirm("Delete this funnel?")) return;
+    await base44.entities.Funnel.delete(id);
+    qc.invalidateQueries(["funnels"]);
+    if (selected?.id === id) setSelected(null);
+  };
 
-  const deleteStage = useMutation({
-    mutationFn: (id) => base44.entities.FunnelStage.delete(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["funnel-stages"] }),
-  });
+  const funnelLeads = (id) => leads.filter(l=>l.funnel_id===id).length;
 
   return (
-    <div className="p-6 lg:p-8 max-w-7xl mx-auto">
-      <PageHeader title="Funnel Builder" subtitle="Create visual funnels with automated actions" actions={
-        <Button onClick={() => setShowCreate(true)} className="gradient-magenta border-0 text-white hover:opacity-90">
-          <Plus className="w-4 h-4 mr-2" /> New Funnel
-        </Button>
-      } />
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Funnel List */}
+    <div className="max-w-5xl mx-auto space-y-5">
+      <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
-          <h3 className="text-sm font-bold text-white mb-4">Funnels</h3>
-          <div className="space-y-3">
-            {funnels.length === 0 && <p className="text-xs text-white/30">No funnels yet</p>}
-            {funnels.map(f => (
-              <GlassCard key={f.id} onClick={() => setSelectedFunnel(f)} className={selectedFunnel?.id === f.id ? "border-magenta/30" : ""}>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-white">{f.name}</p>
-                    <Badge variant="outline" className="text-xs border-white/10 text-white/40 mt-1">{f.status}</Badge>
-                  </div>
-                  <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); deleteFunnel.mutate(f.id); }} className="h-7 w-7 text-white/30 hover:text-red-400">
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </Button>
+          <h1 className="text-2xl font-black text-foreground flex items-center gap-2"><GitBranch className="w-6 h-6 text-fuchsia-400"/>Funnel Builder</h1>
+          <p className="text-muted-foreground text-sm mt-0.5">Build visual funnels with automated actions per stage</p>
+        </div>
+        <button onClick={()=>setShowNewFunnel(true)} className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-fuchsia-500 to-purple-600 text-white text-sm font-semibold hover:opacity-90 shadow-lg shadow-fuchsia-500/20">
+          <Plus className="w-4 h-4"/>New Funnel
+        </button>
+      </div>
+
+      <div className="grid md:grid-cols-3 gap-5">
+        <div className="space-y-2">
+          <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wide">Your Funnels ({funnels.length})</h3>
+          {isLoading ? <div className="flex justify-center py-8"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground"/></div>
+          : funnels.length === 0 ? (
+            <div className="bg-card border border-dashed border-border rounded-2xl p-6 text-center">
+              <GitBranch className="w-8 h-8 text-muted-foreground/20 mx-auto mb-2"/>
+              <p className="text-muted-foreground text-sm">No funnels yet</p>
+              <button onClick={()=>setShowNewFunnel(true)} className="mt-3 text-xs text-fuchsia-400 hover:underline">Create your first →</button>
+            </div>
+          ) : funnels.map(f=>(
+            <div key={f.id} onClick={()=>setSelected(f)}
+              className={`p-4 rounded-2xl border cursor-pointer transition-all ${selected?.id===f.id?"border-fuchsia-500/50 bg-fuchsia-500/8":"border-border bg-card hover:bg-muted/20"}`}>
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-foreground">{f.name}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{funnelLeads(f.id)} leads</p>
                 </div>
-                <div className="flex gap-4 mt-3 text-xs text-white/40">
-                  <span>{f.total_leads || 0} leads</span>
-                  <span>{f.conversion_rate || 0}% conv.</span>
-                </div>
-              </GlassCard>
-            ))}
-          </div>
+                <button onClick={e=>{e.stopPropagation();deleteFunnel(f.id);}} className="p-1 rounded hover:bg-red-500/10 text-muted-foreground hover:text-red-400 transition-colors">
+                  <Trash2 className="w-3.5 h-3.5"/>
+                </button>
+              </div>
+              {f.conversion_rate > 0 && <div className="mt-2 text-xs text-emerald-400">{f.conversion_rate}% conversion</div>}
+            </div>
+          ))}
         </div>
 
-        {/* Stages Visual */}
-        <div className="lg:col-span-2">
-          {!selectedFunnel ? (
-            <GlassCard className="text-center py-16">
-              <GitBranch className="w-10 h-10 text-white/10 mx-auto mb-3" />
-              <p className="text-white/30 text-sm">Select a funnel to view stages</p>
-            </GlassCard>
+        <div className="md:col-span-2">
+          {!selected ? (
+            <div className="bg-card border border-dashed border-border rounded-2xl flex flex-col items-center justify-center py-24 text-center">
+              <GitBranch className="w-12 h-12 text-muted-foreground/20 mb-3"/>
+              <p className="text-foreground font-medium">Select a funnel to view stages</p>
+              <p className="text-muted-foreground text-sm mt-1">Or create a new funnel to get started</p>
+            </div>
           ) : (
-            <>
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-bold text-white">{selectedFunnel.name} — Stages</h3>
-                <Button size="sm" onClick={() => { setStageForm({ name: "", action_type: "email", stage_order: stages.length }); setShowStage(true); }} className="gradient-magenta border-0 text-white hover:opacity-90 h-8 text-xs">
-                  <Plus className="w-3 h-3 mr-1" /> Add Stage
-                </Button>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-bold text-foreground">{selected.name}</h3>
+                  <p className="text-xs text-muted-foreground">{stages.length} stages · {funnelLeads(selected.id)} leads</p>
+                </div>
+                <button onClick={()=>setShowNewStage(true)} className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-fuchsia-500/10 text-fuchsia-400 text-xs font-semibold hover:bg-fuchsia-500/20">
+                  <Plus className="w-3.5 h-3.5"/>Add Stage
+                </button>
               </div>
-              <div className="space-y-3">
-                {stages.length === 0 && <p className="text-xs text-white/30 text-center py-8">No stages. Add your first stage.</p>}
-                {stages.map((s, i) => {
-                  const ActionIcon = actionIcons[s.action_type] || Mail;
-                  return (
-                    <React.Fragment key={s.id}>
-                      <GlassCard className="flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                          <div className="w-8 h-8 rounded-lg bg-magenta/10 flex items-center justify-center text-sm font-bold text-magenta">
-                            {i + 1}
-                          </div>
-                          <div>
-                            <p className="text-sm font-medium text-white">{s.name}</p>
-                            <div className="flex items-center gap-2 mt-1">
-                              <ActionIcon className="w-3 h-3 text-white/40" />
-                              <span className="text-xs text-white/40">{s.action_type}</span>
-                              <span className="text-xs text-white/30">• {s.entry_count || 0} entered</span>
-                            </div>
+              {stages.length === 0 ? (
+                <div className="bg-card border border-dashed border-border rounded-2xl p-8 text-center">
+                  <p className="text-muted-foreground text-sm">No stages yet — add your first stage</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {stages.map((s,i)=>(
+                    <div key={s.id}>
+                      <div className="bg-card border border-border rounded-2xl p-4 flex items-center gap-4">
+                        <div className="w-8 h-8 rounded-full bg-fuchsia-500/10 border-2 border-fuchsia-500/30 flex items-center justify-center flex-shrink-0">
+                          <span className="text-xs font-black text-fuchsia-400">{i+1}</span>
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm font-semibold text-foreground">{s.name}</p>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${ACTION_COLORS[s.action_type]||"bg-muted text-muted-foreground"}`}>Action: {s.action_type}</span>
+                            <span className="text-xs text-muted-foreground">{s.entry_count||0} entries</span>
                           </div>
                         </div>
-                        <Button variant="ghost" size="icon" onClick={() => deleteStage.mutate(s.id)} className="h-7 w-7 text-white/30 hover:text-red-400">
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </Button>
-                      </GlassCard>
-                      {i < stages.length - 1 && (
-                        <div className="flex justify-center"><ArrowDown className="w-4 h-4 text-white/20" /></div>
-                      )}
-                    </React.Fragment>
-                  );
-                })}
-              </div>
-            </>
+                      </div>
+                      {i < stages.length-1 && <div className="flex justify-center py-1"><ArrowDown className="w-4 h-4 text-muted-foreground/40"/></div>}
+                    </div>
+                  ))}
+                  <div className="flex justify-center py-1"><ArrowDown className="w-4 h-4 text-muted-foreground/40"/></div>
+                  <div className="bg-emerald-500/5 border border-emerald-500/20 border-dashed rounded-2xl p-4 text-center">
+                    <p className="text-sm text-emerald-400 font-medium">🏆 Converted</p>
+                    <p className="text-xs text-muted-foreground">{selected.converted_leads||0} leads converted</p>
+                  </div>
+                </div>
+              )}
+            </div>
           )}
         </div>
       </div>
 
-      {/* Create Funnel Dialog */}
-      <Dialog open={showCreate} onOpenChange={setShowCreate}>
-        <DialogContent className="bg-[#161616] border-white/10 text-white max-w-sm">
-          <DialogHeader><DialogTitle>New Funnel</DialogTitle></DialogHeader>
-          <div className="space-y-4 mt-4">
-            <div><Label className="text-white/60 text-xs">Name</Label><Input value={funnelForm.name} onChange={(e) => setFunnelForm({ ...funnelForm, name: e.target.value })} className="bg-white/5 border-white/10 text-white mt-1" /></div>
-            <div><Label className="text-white/60 text-xs">Description</Label><Textarea value={funnelForm.description} onChange={(e) => setFunnelForm({ ...funnelForm, description: e.target.value })} className="bg-white/5 border-white/10 text-white mt-1" rows={2} /></div>
-            <Button onClick={() => createFunnel.mutate(funnelForm)} disabled={!funnelForm.name} className="w-full gradient-magenta border-0 text-white hover:opacity-90">Create Funnel</Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Add Stage Dialog */}
-      <Dialog open={showStage} onOpenChange={setShowStage}>
-        <DialogContent className="bg-[#161616] border-white/10 text-white max-w-sm">
-          <DialogHeader><DialogTitle>Add Stage</DialogTitle></DialogHeader>
-          <div className="space-y-4 mt-4">
-            <div><Label className="text-white/60 text-xs">Stage Name</Label><Input value={stageForm.name} onChange={(e) => setStageForm({ ...stageForm, name: e.target.value })} className="bg-white/5 border-white/10 text-white mt-1" /></div>
-            <div>
-              <Label className="text-white/60 text-xs">Action Type</Label>
-              <Select value={stageForm.action_type} onValueChange={(v) => setStageForm({ ...stageForm, action_type: v })}>
-                <SelectTrigger className="bg-white/5 border-white/10 text-white mt-1"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {Object.keys(actionIcons).map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}
-                </SelectContent>
-              </Select>
+      {showNewFunnel && (
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-card border border-border rounded-2xl p-6 w-full max-w-sm shadow-2xl">
+            <div className="flex items-center justify-between mb-5"><h3 className="font-bold text-foreground">New Funnel</h3><button onClick={()=>setShowNewFunnel(false)}><X className="w-5 h-5 text-muted-foreground"/></button></div>
+            <div className="space-y-3">
+              <div className="space-y-1.5"><label className="text-xs font-medium text-muted-foreground">Funnel Name *</label>
+              <input value={funnelForm.name} onChange={e=>setFunnelForm(p=>({...p,name:e.target.value}))} placeholder="e.g. Lead Nurture Q2" className="w-full h-9 px-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"/></div>
+              <div className="space-y-1.5"><label className="text-xs font-medium text-muted-foreground">Description</label>
+              <textarea value={funnelForm.description} onChange={e=>setFunnelForm(p=>({...p,description:e.target.value}))} rows={2} placeholder="What's this funnel for?" className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm focus:outline-none resize-none"/></div>
             </div>
-            <Button onClick={() => createStage.mutate({ ...stageForm, funnel_id: selectedFunnel.id, client_id: selectedFunnel.client_id })} disabled={!stageForm.name} className="w-full gradient-magenta border-0 text-white hover:opacity-90">Add Stage</Button>
+            <div className="flex gap-3 mt-5">
+              <button onClick={()=>setShowNewFunnel(false)} className="flex-1 py-2.5 border border-border rounded-xl text-sm">Cancel</button>
+              <button onClick={saveFunnel} disabled={saving||!funnelForm.name} className="flex-1 py-2.5 bg-gradient-to-r from-fuchsia-500 to-purple-600 text-white rounded-xl text-sm font-semibold disabled:opacity-60 flex items-center justify-center gap-2">
+                {saving?<Loader2 className="w-4 h-4 animate-spin"/>:"Create Funnel"}
+              </button>
+            </div>
           </div>
-        </DialogContent>
-      </Dialog>
+        </div>
+      )}
+
+      {showNewStage && (
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-card border border-border rounded-2xl p-6 w-full max-w-sm shadow-2xl">
+            <div className="flex items-center justify-between mb-5"><h3 className="font-bold text-foreground">Add Stage</h3><button onClick={()=>setShowNewStage(false)}><X className="w-5 h-5 text-muted-foreground"/></button></div>
+            <div className="space-y-3">
+              <div className="space-y-1.5"><label className="text-xs font-medium text-muted-foreground">Stage Name *</label>
+              <input value={stageForm.name} onChange={e=>setStageForm(p=>({...p,name:e.target.value}))} placeholder="e.g. Initial Contact" className="w-full h-9 px-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"/></div>
+              <div className="space-y-1.5"><label className="text-xs font-medium text-muted-foreground">Automated Action</label>
+              <select value={stageForm.action_type} onChange={e=>setStageForm(p=>({...p,action_type:e.target.value}))} className="w-full h-9 px-3 rounded-md border border-input bg-background text-sm focus:outline-none">
+                <option value="email">Send Email</option><option value="sms">Send SMS</option>
+                <option value="whatsapp">Send WhatsApp</option><option value="wait">Wait</option>
+                <option value="tag">Add Tag</option><option value="move_stage">Move Stage</option>
+              </select></div>
+            </div>
+            <div className="flex gap-3 mt-5">
+              <button onClick={()=>setShowNewStage(false)} className="flex-1 py-2.5 border border-border rounded-xl text-sm">Cancel</button>
+              <button onClick={saveStage} disabled={saving||!stageForm.name} className="flex-1 py-2.5 bg-gradient-to-r from-fuchsia-500 to-purple-600 text-white rounded-xl text-sm font-semibold disabled:opacity-60 flex items-center justify-center gap-2">
+                {saving?<Loader2 className="w-4 h-4 animate-spin"/>:"Add Stage"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
