@@ -1,183 +1,207 @@
-import React, { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
+import { useOutletContext } from "react-router-dom";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
-import { Share2, Plus, Instagram, Sparkles, Calendar, Send, Image, Video, Trash2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Badge } from "@/components/ui/badge";
-import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import PageHeader from "@/components/ui/PageHeader";
-import GlassCard from "@/components/ui/GlassCard";
-import { format } from "date-fns";
+import { Share2, Plus, Calendar, Instagram, Linkedin, Youtube, Clock, CheckCircle2, XCircle, Loader2, X, Image, AlignLeft } from "lucide-react";
 
-const platformColors = {
-  instagram: "text-pink-400 bg-pink-400/10",
-  facebook: "text-blue-400 bg-blue-400/10",
-  tiktok: "text-cyan-400 bg-cyan-400/10",
-  linkedin: "text-blue-500 bg-blue-500/10",
-  youtube: "text-red-400 bg-red-400/10",
-  twitter_x: "text-white/70 bg-white/10",
-  pinterest: "text-red-500 bg-red-500/10",
+const PLATFORMS = [
+  { id: "instagram", label: "Instagram", color: "from-pink-500 to-rose-600" },
+  { id: "facebook",  label: "Facebook",  color: "from-blue-500 to-blue-700" },
+  { id: "tiktok",    label: "TikTok",    color: "from-gray-800 to-gray-900 border-white/20" },
+  { id: "linkedin",  label: "LinkedIn",  color: "from-blue-600 to-blue-800" },
+  { id: "youtube",   label: "YouTube",   color: "from-red-500 to-red-700" },
+  { id: "twitter_x", label: "Twitter/X", color: "from-gray-700 to-gray-900" },
+];
+
+const STATUS_COLORS = {
+  scheduled: "bg-amber-500/10 text-amber-400",
+  posted:    "bg-emerald-500/10 text-emerald-400",
+  draft:     "bg-muted text-muted-foreground",
+  failed:    "bg-red-500/10 text-red-400",
 };
 
 export default function SocialHub() {
-  const [showCompose, setShowCompose] = useState(false);
-  const [form, setForm] = useState({ platform: "instagram", caption: "", media_type: "image", scheduled_at: "", status: "draft" });
-  const [aiLoading, setAiLoading] = useState(false);
+  const { user } = useOutletContext() || {};
   const qc = useQueryClient();
-
-  const { data: posts = [] } = useQuery({
-    queryKey: ["posts"],
-    queryFn: () => base44.entities.ScheduledPost.list("-created_date", 100),
-  });
+  const [showCompose, setShowCompose] = useState(false);
+  const [platformFilter, setPlatformFilter] = useState("all");
+  const [form, setForm] = useState({ platform: "instagram", caption: "", media_url: "", media_type: "image", scheduled_at: "" });
+  const [saving, setSaving] = useState(false);
 
   const { data: accounts = [] } = useQuery({
-    queryKey: ["social-accounts"],
-    queryFn: () => base44.entities.SocialAccount.list("-created_date", 50),
+    queryKey: ["social_accounts"],
+    queryFn: () => base44.entities.SocialAccount.list("-created_date", 20),
+  });
+  const { data: posts = [], isLoading } = useQuery({
+    queryKey: ["scheduled_posts"],
+    queryFn: () => base44.entities.ScheduledPost.list("-scheduled_at", 100),
   });
 
-  const createPost = useMutation({
-    mutationFn: (d) => base44.entities.ScheduledPost.create(d),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["posts"] }); setShowCompose(false); setForm({ platform: "instagram", caption: "", media_type: "image", scheduled_at: "", status: "draft" }); },
-  });
+  const filtered = posts.filter(p => platformFilter === "all" || p.platform === platformFilter);
 
-  const deletePost = useMutation({
-    mutationFn: (id) => base44.entities.ScheduledPost.delete(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["posts"] }),
-  });
-
-  const generateCaption = async () => {
-    setAiLoading(true);
-    const res = await base44.integrations.Core.InvokeLLM({
-      prompt: `Generate a creative, engaging social media caption for ${form.platform}. Keep it under 200 characters. Use relevant emojis. Topic: ${form.caption || "general marketing"}`,
-      response_json_schema: { type: "object", properties: { caption: { type: "string" } } },
-    });
-    setForm({ ...form, caption: res.caption });
-    setAiLoading(false);
+  const savePost = async () => {
+    if (!form.caption) { alert("Caption required"); return; }
+    setSaving(true);
+    try {
+      await base44.entities.ScheduledPost.create({
+        ...form, status: form.scheduled_at ? "scheduled" : "draft",
+      });
+      qc.invalidateQueries(["scheduled_posts"]);
+      setForm({ platform: "instagram", caption: "", media_url: "", media_type: "image", scheduled_at: "" });
+      setShowCompose(false);
+    } catch (e) { alert(e.message); }
+    setSaving(false);
   };
 
-  const scheduled = posts.filter(p => p.status === "scheduled");
-  const posted = posts.filter(p => p.status === "posted");
+  const connectedPlatforms = accounts.map(a => a.platform);
+  const scheduledCount = posts.filter(p => p.status === "scheduled").length;
+  const postedCount = posts.filter(p => p.status === "posted").length;
 
   return (
-    <div className="p-6 lg:p-8 max-w-7xl mx-auto">
-      <PageHeader
-        title="Social Hub"
-        subtitle="Manage social accounts and schedule posts"
-        actions={
-          <Button onClick={() => setShowCompose(true)} className="gradient-magenta border-0 text-white hover:opacity-90">
-            <Plus className="w-4 h-4 mr-2" /> New Post
-          </Button>
-        }
-      />
+    <div className="max-w-5xl mx-auto space-y-6">
+      <div className="flex items-center justify-between flex-wrap gap-4">
+        <div>
+          <h1 className="text-2xl font-black text-foreground flex items-center gap-2"><Share2 className="w-6 h-6 text-fuchsia-400" /> Social Hub</h1>
+          <p className="text-muted-foreground text-sm mt-0.5">Schedule and manage posts across all social platforms</p>
+        </div>
+        <button onClick={() => setShowCompose(true)} className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-fuchsia-500 to-purple-600 text-white text-sm font-semibold hover:opacity-90 shadow-lg shadow-fuchsia-500/20">
+          <Plus className="w-4 h-4" /> New Post
+        </button>
+      </div>
 
-      {/* Connected Accounts */}
-      <div className="flex flex-wrap gap-3 mb-8">
-        {accounts.length === 0 && <p className="text-xs text-white/30">No social accounts connected yet. Add them in Settings.</p>}
-        {accounts.map(a => (
-          <div key={a.id} className={`flex items-center gap-2 px-3 py-2 rounded-lg glass text-xs ${platformColors[a.platform] || ""}`}>
-            <div className={`w-5 h-5 rounded-full ${platformColors[a.platform]?.split(" ")[1]} flex items-center justify-center`}>
-              <Share2 className="w-3 h-3" />
-            </div>
-            <span className="font-medium">{a.account_name}</span>
-            <Badge variant="outline" className="text-[10px] border-white/10">{a.status}</Badge>
+      {/* Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {[
+          { label: "Total Posts", value: posts.length },
+          { label: "Scheduled", value: scheduledCount },
+          { label: "Posted", value: postedCount },
+          { label: "Connected Accounts", value: accounts.length },
+        ].map(s => (
+          <div key={s.label} className="bg-card border border-border rounded-2xl p-4">
+            <div className="text-2xl font-black text-foreground">{s.value}</div>
+            <div className="text-xs text-muted-foreground mt-0.5">{s.label}</div>
           </div>
         ))}
       </div>
 
-      <Tabs defaultValue="scheduled" className="space-y-6">
-        <TabsList className="bg-white/5 border border-white/10">
-          <TabsTrigger value="scheduled" className="data-[state=active]:bg-magenta/20 data-[state=active]:text-magenta">Scheduled ({scheduled.length})</TabsTrigger>
-          <TabsTrigger value="posted" className="data-[state=active]:bg-magenta/20 data-[state=active]:text-magenta">Posted ({posted.length})</TabsTrigger>
-          <TabsTrigger value="all" className="data-[state=active]:bg-magenta/20 data-[state=active]:text-magenta">All ({posts.length})</TabsTrigger>
-        </TabsList>
+      {/* Connected platforms */}
+      <div className="bg-card border border-border rounded-2xl p-5">
+        <h3 className="font-semibold text-foreground mb-4">Connected Platforms</h3>
+        <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
+          {PLATFORMS.map(p => {
+            const isConnected = connectedPlatforms.includes(p.id);
+            return (
+              <div key={p.id} className={`flex flex-col items-center gap-2 p-3 rounded-xl border transition-all ${isConnected ? "border-fuchsia-500/30 bg-fuchsia-500/5" : "border-border bg-muted/20"}`}>
+                <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${p.color} flex items-center justify-center`}>
+                  <span className="text-xs font-black text-white">{p.label[0]}</span>
+                </div>
+                <span className="text-xs font-medium text-foreground">{p.label}</span>
+                <span className={`text-[10px] ${isConnected ? "text-emerald-400" : "text-muted-foreground"}`}>{isConnected ? "Connected" : "Add in Settings"}</span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
 
-        {["scheduled", "posted", "all"].map(tab => (
-          <TabsContent key={tab} value={tab}>
-            <div className="grid gap-4">
-              {(tab === "all" ? posts : tab === "scheduled" ? scheduled : posted).length === 0 && (
-                <GlassCard className="text-center py-12">
-                  <Calendar className="w-10 h-10 text-white/10 mx-auto mb-3" />
-                  <p className="text-white/30 text-sm">No {tab} posts</p>
-                </GlassCard>
-              )}
-              {(tab === "all" ? posts : tab === "scheduled" ? scheduled : posted).map(p => (
-                <GlassCard key={p.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                  <div className="flex items-start gap-4 flex-1 min-w-0">
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${platformColors[p.platform]?.split(" ")[1] || "bg-white/10"}`}>
-                      <Share2 className={`w-5 h-5 ${platformColors[p.platform]?.split(" ")[0] || "text-white/50"}`} />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-white truncate">{p.caption || "No caption"}</p>
-                      <div className="flex items-center gap-2 mt-1">
-                        <Badge variant="outline" className="text-xs border-white/10 text-white/40">{p.platform}</Badge>
-                        <Badge variant="outline" className="text-xs border-white/10 text-white/40">{p.media_type}</Badge>
-                        <span className="text-xs text-white/30">{p.scheduled_at ? format(new Date(p.scheduled_at), "MMM d, h:mm a") : ""}</span>
-                      </div>
-                    </div>
-                  </div>
-                  <Button variant="ghost" size="icon" onClick={() => deletePost.mutate(p.id)} className="text-white/30 hover:text-red-400 h-8 w-8">
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                </GlassCard>
-              ))}
-            </div>
-          </TabsContent>
+      {/* Platform filter */}
+      <div className="flex gap-2 flex-wrap">
+        {["all", ...PLATFORMS.map(p => p.id)].map(f => (
+          <button key={f} onClick={() => setPlatformFilter(f)}
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium capitalize transition-all ${platformFilter === f ? "bg-fuchsia-500/15 text-fuchsia-400 border border-fuchsia-500/30" : "bg-muted text-muted-foreground hover:text-foreground"}`}>
+            {f === "all" ? "All Platforms" : f.replace("_", "/")}
+          </button>
         ))}
-      </Tabs>
+      </div>
 
-      {/* Compose Dialog */}
-      <Dialog open={showCompose} onOpenChange={setShowCompose}>
-        <DialogContent className="bg-[#161616] border-white/10 text-white max-w-lg">
-          <DialogHeader><DialogTitle>New Post</DialogTitle></DialogHeader>
-          <div className="space-y-4 mt-4">
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label className="text-white/60 text-xs">Platform</Label>
-                <Select value={form.platform} onValueChange={(v) => setForm({ ...form, platform: v })}>
-                  <SelectTrigger className="bg-white/5 border-white/10 text-white mt-1"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {Object.keys(platformColors).map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label className="text-white/60 text-xs">Media Type</Label>
-                <Select value={form.media_type} onValueChange={(v) => setForm({ ...form, media_type: v })}>
-                  <SelectTrigger className="bg-white/5 border-white/10 text-white mt-1"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="image">Image</SelectItem>
-                    <SelectItem value="video">Video</SelectItem>
-                    <SelectItem value="reel">Reel</SelectItem>
-                    <SelectItem value="story">Story</SelectItem>
-                    <SelectItem value="carousel">Carousel</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <Label className="text-white/60 text-xs">Caption</Label>
-                <Button variant="ghost" size="sm" onClick={generateCaption} disabled={aiLoading} className="text-magenta text-xs h-6 px-2">
-                  <Sparkles className="w-3 h-3 mr-1" /> {aiLoading ? "Generating..." : "AI Generate"}
-                </Button>
-              </div>
-              <Textarea value={form.caption} onChange={(e) => setForm({ ...form, caption: e.target.value })} className="bg-white/5 border-white/10 text-white" rows={4} placeholder="Write your caption..." />
-            </div>
-            <div>
-              <Label className="text-white/60 text-xs">Schedule At</Label>
-              <Input type="datetime-local" value={form.scheduled_at} onChange={(e) => setForm({ ...form, scheduled_at: e.target.value })} className="bg-white/5 border-white/10 text-white mt-1" />
-            </div>
-            <Button onClick={() => createPost.mutate({ ...form, status: form.scheduled_at ? "scheduled" : "draft" })} disabled={!form.caption} className="w-full gradient-magenta border-0 text-white hover:opacity-90">
-              {form.scheduled_at ? "Schedule Post" : "Save as Draft"}
-            </Button>
+      {/* Posts list */}
+      <div className="bg-card border border-border rounded-2xl overflow-hidden">
+        {isLoading ? (
+          <div className="flex items-center justify-center py-16"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>
+        ) : filtered.length === 0 ? (
+          <div className="flex flex-col items-center py-16 text-center">
+            <Calendar className="w-10 h-10 text-muted-foreground/20 mb-3" />
+            <p className="text-foreground font-medium">No posts yet</p>
+            <p className="text-xs text-muted-foreground mt-1 mb-4">Compose and schedule your first social post</p>
+            <button onClick={() => setShowCompose(true)} className="px-5 py-2.5 bg-gradient-to-r from-fuchsia-500 to-purple-600 text-white rounded-xl text-sm font-semibold">
+              Create Post
+            </button>
           </div>
-        </DialogContent>
-      </Dialog>
+        ) : (
+          <div className="divide-y divide-border">
+            {filtered.map(p => {
+              const platform = PLATFORMS.find(pl => pl.id === p.platform);
+              return (
+                <div key={p.id} className="flex items-center gap-4 px-5 py-4 hover:bg-muted/20">
+                  <div className={`w-9 h-9 rounded-xl bg-gradient-to-br ${platform?.color || "from-gray-500 to-gray-700"} flex items-center justify-center flex-shrink-0`}>
+                    <span className="text-xs font-black text-white">{(p.platform || "?")[0].toUpperCase()}</span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-foreground truncate">{p.caption || "No caption"}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-2">
+                      <span className="capitalize">{p.platform?.replace("_", "/")}</span>
+                      {p.media_type && <span>· {p.media_type}</span>}
+                      {p.scheduled_at && <span>· <Clock className="w-3 h-3 inline" /> {new Date(p.scheduled_at).toLocaleString()}</span>}
+                    </p>
+                  </div>
+                  <span className={`text-xs px-2.5 py-1 rounded-full font-medium flex-shrink-0 ${STATUS_COLORS[p.status] || "bg-muted text-muted-foreground"}`}>
+                    {p.status}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Compose Modal */}
+      {showCompose && (
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-card border border-border rounded-2xl p-6 w-full max-w-lg shadow-2xl">
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="font-bold text-foreground text-lg">Compose Post</h3>
+              <button onClick={() => setShowCompose(false)}><X className="w-5 h-5 text-muted-foreground" /></button>
+            </div>
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground">Platform</label>
+                  <select value={form.platform} onChange={e => setForm(p => ({ ...p, platform: e.target.value }))} className="w-full h-9 px-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+                    {PLATFORMS.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground">Media Type</label>
+                  <select value={form.media_type} onChange={e => setForm(p => ({ ...p, media_type: e.target.value }))} className="w-full h-9 px-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+                    <option value="image">Image</option>
+                    <option value="video">Video</option>
+                    <option value="reel">Reel</option>
+                    <option value="story">Story</option>
+                    <option value="carousel">Carousel</option>
+                  </select>
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Caption *</label>
+                <textarea value={form.caption} onChange={e => setForm(p => ({ ...p, caption: e.target.value }))} rows={4} placeholder="Write your caption… or use Media Studio to generate one" className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none" />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Media URL</label>
+                <input value={form.media_url} onChange={e => setForm(p => ({ ...p, media_url: e.target.value }))} placeholder="https://… or from Media Library" className="w-full h-9 px-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Schedule Date/Time</label>
+                <input type="datetime-local" value={form.scheduled_at} onChange={e => setForm(p => ({ ...p, scheduled_at: e.target.value }))} className="w-full h-9 px-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+              </div>
+            </div>
+            <div className="flex gap-3 mt-5">
+              <button onClick={() => setShowCompose(false)} className="flex-1 py-2.5 border border-border rounded-xl text-sm font-medium">Cancel</button>
+              <button onClick={savePost} disabled={saving || !form.caption} className="flex-1 py-2.5 bg-gradient-to-r from-fuchsia-500 to-purple-600 text-white rounded-xl text-sm font-semibold hover:opacity-90 disabled:opacity-60 flex items-center justify-center gap-2">
+                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : form.scheduled_at ? "Schedule Post" : "Save as Draft"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
