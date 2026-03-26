@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import {
   LayoutDashboard, Users, Megaphone, Share2, Sparkles, PenTool,
@@ -7,6 +7,23 @@ import {
   Lock, Bell, HelpCircle, ShieldCheck, Zap, Building2, Share
 } from "lucide-react";
 import { base44 } from "@/api/base44Client";
+import { Moon, Sun } from "lucide-react";
+
+function DarkToggle() {
+  const [dark, setDark] = useState(() => localStorage.getItem("marketer_theme") !== "light");
+  useEffect(() => {
+    document.documentElement.classList.toggle("dark", dark);
+    localStorage.setItem("marketer_theme", dark ? "dark" : "light");
+  }, [dark]);
+  return (
+    <button onClick={() => setDark(d => !d)}
+      className="flex items-center gap-3 w-full px-3 py-2 rounded-lg text-sm font-medium text-sidebar-foreground hover:bg-sidebar-accent transition-all mb-1">
+      {dark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4" />}
+      <span>{dark ? "Light mode" : "Dark mode"}</span>
+    </button>
+  );
+}
+
 
 const M_LOGO = "https://media.base44.com/images/public/69b1f1d60b1fb9d791fddc64/d1aa347a6_generated_image.png";
 
