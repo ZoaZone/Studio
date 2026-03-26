@@ -104,8 +104,8 @@ const queryClient = new QueryClient({
 
 function App() {
   return (
-    <AuthProvider>
-      <QueryClientProvider client={queryClientInstance}>
+    <QueryClientProvider client={queryClientInstance}>
+      <AuthProvider>
         <Router>
           <AuthenticatedApp />
         </Router>
