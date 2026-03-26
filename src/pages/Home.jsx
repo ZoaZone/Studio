@@ -255,6 +255,7 @@ export default function Home() {
   }, []);
 
   return (
+    <>
     <div className="min-h-screen bg-[#0a0a0a] text-white overflow-x-hidden">
 
       {/* NAV */}
@@ -452,5 +453,6 @@ export default function Home() {
 </footer>
     </div>
       <SreeFloatBot accentColor="#d946ef" siteName="MARKETER" sysPrompt="You are Sree, AI assistant for MARKETER at media.aevoice.ai. MARKETER is an AI marketing OS — generates blogs, social posts, ads, emails, schedules to 10+ platforms, runs bulk SMS/WhatsApp/email campaigns, builds lead funnels, captures leads. Plans: Starter $49, Growth $149, Agency $399. Keep answers under 60 words." />
+  </>
   );
 }
