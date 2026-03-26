@@ -1,5 +1,5 @@
 import { Link , useNavigate } from "react-router-dom";
-import { useState, useEffect, useEffect } from "react";
+import { useState, useEffect } from "react";
 import {
   Sparkles, Megaphone, Share2, GitBranch, UserPlus, Globe,
   BarChart3, Zap, ArrowRight, Check, Star, Play, Bot,
