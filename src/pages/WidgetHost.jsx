@@ -1,268 +1,219 @@
-import { useState, useRef, useEffect, useCallback } from "react";
-import { Mic, MicOff, Send, X, Volume2, VolumeX, MessageSquare, Bot, Loader2, Phone } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { Mic, MicOff, Send, X, MessageSquare, Volume2, VolumeX, Bot, Loader2 } from "lucide-react";
 
-const SRI_FN   = "https://sreeagent.base44.app/functions/sriChat";
-const LOGO_URL = "https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/692b24a5bac54e3067972063/2e8a22a03_AevoiceLogo.JPG";
-const DEFAULT_COLOR    = "#d946ef";
-const DEFAULT_NAME     = "Sree · MARKETER";
-const DEFAULT_GREETING = "Hi! I am Sree, your marketing AI. Ask me about AI content creation, bulk messaging, social scheduling, funnels, or lead generation!";
-const SITE_SYSTEM_PROMPT = "You are Sree, the AI assistant for MARKETER at media.aevoice.ai. MARKETER is a full-stack AI marketing OS. Features: AI generates posts, ads, emails and scripts; schedules to 10+ social platforms; bulk SMS, WhatsApp and email campaigns; visual funnel builder with A/B testing; lead capture with CRM sync; website auto-scan; ROI analytics; AI media studio. Plans: Starter $49/mo, Growth $149/mo, Agency $399/mo. URL: https://media.aevoice.ai. The omnichannel AI platform for voice calls, SMS, web chat, WhatsApp, email, and social media. Under 100 words.";
+const SRI_FN     = "https://sreeagent.base44.app/functions/sriChat";
+const TTS_FN     = "https://sreeagent.base44.app/functions/ttsStream";
+const LOGO_URL   = "https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/692b24a5bac54e3067972063/2e8a22a03_AevoiceLogo.JPG";
+const SITE_COLOR = "#d946ef";
+const SITE_NAME  = "MARKETER";
+const SITE_URL   = "https://media.aevoice.ai";
+const SYSTEM_PROMPT = `You are Sree, the AI marketing assistant for MARKETER at media.aevoice.ai. MARKETER is an AI marketing OS — generates content, schedules to 10+ social platforms, runs bulk SMS/WhatsApp/email campaigns, builds funnels, captures leads. Plans: Starter $49, Growth $149, Agency $399. Keep answers under 80 words.`;
 
 function getConfig() {
   const p = new URLSearchParams(window.location.search);
   return {
-    name:     p.get("name")     || DEFAULT_NAME,
-    color:    p.get("color")    || DEFAULT_COLOR,
-    greeting: p.get("greeting") || DEFAULT_GREETING,
-    mode:     p.get("mode")     || "both",
-    lang:     p.get("lang")     || "en-US",
-    position: p.get("position") || "bottom-right",
+    name:    p.get("name")    || SITE_NAME,
+    color:   p.get("color")   || SITE_COLOR,
+    logo:    p.get("logo")    || LOGO_URL,
+    mode:    p.get("mode")    || "both",  // "text" | "voice" | "both"
+    prompt:  p.get("prompt")  || SYSTEM_PROMPT,
   };
 }
 
 export default function WidgetHost() {
   const cfg = getConfig();
-  const [isOpen, setIsOpen]       = useState(false);
-  const [mode, setMode]           = useState("text");
-  const [messages, setMessages]   = useState([{ role: "assistant", content: cfg.greeting }]);
+  const [msgs, setMsgs]           = useState([{ role:"assistant", content:`Hi! I'm Sree, your AI assistant for ${cfg.name}. How can I help you today?` }]);
   const [input, setInput]         = useState("");
   const [loading, setLoading]     = useState(false);
   const [listening, setListening] = useState(false);
   const [speaking, setSpeaking]   = useState(false);
-  const [voiceOn, setVoiceOn]     = useState(true);
-  const [liveText, setLiveText]   = useState("");
-  const [voiceStatus, setVoiceStatus] = useState("idle");
-  const [voiceOk, setVoiceOk]     = useState(false);
-  const [unread, setUnread]       = useState(0);
-  const recRef = useRef(null); const audioRef = useRef(null); const bottomRef = useRef(null);
+  const [muted, setMuted]         = useState(false);
+  const [voiceStatus, setVoiceStatus] = useState("idle"); // idle | listening | processing | speaking
+  const bottomRef  = useRef(null);
+  const audioRef   = useRef(null);
+  const recognRef  = useRef(null);
 
-  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
-  useEffect(() => {
-    if (!isOpen && messages.length > 1) setUnread(n => n + 1);
-    if (isOpen) setUnread(0);
-  }, [messages]);
+  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior:"smooth" }); }, [msgs]);
 
-  useEffect(() => {
-    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) return;
-    setVoiceOk(true);
-    const rec = new SR();
-    rec.continuous = false; rec.interimResults = true; rec.lang = cfg.lang;
-    rec.onresult = (e) => {
-      let interim = "", final = "";
-      for (let i = e.resultIndex; i < e.results.length; i++) {
-        const t = e.results[i][0].transcript;
-        e.results[i].isFinal ? (final += t) : (interim += t);
-      }
-      setLiveText(final || interim);
-      if (final) { setListening(false); setLiveText(""); send(final, "voice"); }
-    };
-    rec.onerror = () => { setListening(false); setVoiceStatus("idle"); };
-    rec.onend   = () => setListening(false);
-    recRef.current = rec;
-  }, []);
-
-  const send = useCallback(async (text, sendMode = "text") => {
-    const t = (text || input).trim();
-    if (!t || loading) return;
-    if (sendMode === "text") setInput("");
+  // ── Text send ──
+  const send = async (text) => {
+    const msg = (text || input).trim();
+    if (!msg || loading) return;
+    setInput("");
+    const history = [...msgs, { role:"user", content:msg }];
+    setMsgs(history);
     setLoading(true);
-    setVoiceStatus(sendMode === "voice" ? "processing" : "idle");
-    setMessages(prev => [...prev, { role: "user", content: t }]);
     try {
-      const history = messages.slice(-8).map(m => ({ role: m.role, content: m.content }));
       const res = await fetch(SRI_FN, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: t, history, systemPrompt: SITE_SYSTEM_PROMPT, mode: sendMode === "voice" && voiceOn ? "voice" : "text" }),
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({ message:msg, history: history.slice(-8), systemPrompt: cfg.prompt })
       });
       const data = await res.json();
-      const reply = data?.reply || data?.content || "How can I help?";
-      setMessages(prev => [...prev, { role: "assistant", content: reply }]);
-      if (sendMode === "voice" && voiceOn) {
-        if (data?.audio) {
-          setVoiceStatus("speaking"); setSpeaking(true);
-          try {
-            const bytes = new Uint8Array(atob(data.audio).split("").map(c => c.charCodeAt(0)));
-            const url = URL.createObjectURL(new Blob([bytes], { type: "audio/mp3" }));
-            const a = new Audio(url); audioRef.current = a;
-            a.onended = () => { setSpeaking(false); setVoiceStatus("idle"); URL.revokeObjectURL(url); };
-            await a.play();
-          } catch { setSpeaking(false); setVoiceStatus("idle"); }
-        } else {
-          const utt = new SpeechSynthesisUtterance(reply.substring(0, 200));
-          utt.lang = cfg.lang;
-          utt.onend = () => { setSpeaking(false); setVoiceStatus("idle"); };
-          setVoiceStatus("speaking"); setSpeaking(true);
-          speechSynthesis.speak(utt);
-        }
-      } else {
-        setVoiceStatus("idle");
-      }
+      const reply = data?.reply || data?.content || "I'm here to help — ask me anything!";
+      setMsgs(h => [...h, { role:"assistant", content:reply }]);
+      if (!muted && cfg.mode !== "text") speakText(reply);
     } catch {
-      setMessages(prev => [...prev, { role: "assistant", content: "Connection error — please try again." }]);
-      setVoiceStatus("idle");
+      setMsgs(h => [...h, { role:"assistant", content:"Something went wrong. Please try again!" }]);
     }
     setLoading(false);
-  }, [input, messages, loading, voiceOn, cfg]);
-
-  const startListen = () => {
-    if (!recRef.current) return;
-    if (audioRef.current) { audioRef.current.pause(); setSpeaking(false); }
-    speechSynthesis.cancel();
-    setListening(true); setVoiceStatus("listening"); setLiveText("");
-    try { recRef.current.start(); } catch { setListening(false); setVoiceStatus("idle"); }
   };
-  const stopListen = () => { recRef.current?.stop(); setListening(false); setVoiceStatus("idle"); };
 
-  const pc  = cfg.color;
-  const pos = cfg.position === "bottom-left" ? "left-6" : "right-6";
+  // ── TTS ──
+  const speakText = async (text) => {
+    setSpeaking(true); setVoiceStatus("speaking");
+    try {
+      // Try TTS backend first, fallback to browser TTS
+      const res = await fetch(TTS_FN, {
+        method:"POST", headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({ text, voice:"alloy" })
+      });
+      if (res.ok) {
+        const buf  = await res.arrayBuffer();
+        const blob = new Blob([buf], { type:"audio/mp3" });
+        const url  = URL.createObjectURL(blob);
+        audioRef.current?.pause();
+        const a = new Audio(url); audioRef.current = a;
+        a.onended = () => { setSpeaking(false); setVoiceStatus("idle"); URL.revokeObjectURL(url); };
+        a.play();
+        return;
+      }
+    } catch {}
+    // Browser TTS fallback
+    const utt = new SpeechSynthesisUtterance(text);
+    utt.rate = 1.0; utt.pitch = 1.0;
+    utt.onend = () => { setSpeaking(false); setVoiceStatus("idle"); };
+    window.speechSynthesis.speak(utt);
+  };
 
-  if (!isOpen) return (
-    <div className={`fixed bottom-6 ${pos} z-[9999]`}>
-      <button onClick={() => setIsOpen(true)}
-        style={{ background: `linear-gradient(135deg, ${pc}, ${pc}cc)` }}
-        className="w-14 h-14 rounded-full text-white shadow-2xl hover:scale-110 active:scale-95 transition-all flex items-center justify-center relative">
-        <MessageSquare className="w-6 h-6" />
-        {unread > 0 && (
-          <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full text-[10px] font-bold flex items-center justify-center text-white">{unread}</span>
-        )}
-      </button>
-      <p className="text-[9px] text-center mt-1 text-slate-400 font-medium">{cfg.name}</p>
-    </div>
-  );
+  const stopSpeaking = () => {
+    audioRef.current?.pause();
+    window.speechSynthesis.cancel();
+    setSpeaking(false); setVoiceStatus("idle");
+  };
+
+  // ── STT ──
+  const startListening = () => {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) { alert("Voice input not supported in this browser. Please use Chrome."); return; }
+    stopSpeaking();
+    const r = new SR();
+    recognRef.current = r;
+    r.continuous = false; r.interimResults = false; r.lang = "en-US";
+    r.onstart  = () => { setListening(true); setVoiceStatus("listening"); };
+    r.onresult = (e) => {
+      const transcript = e.results[0][0].transcript;
+      setInput(transcript);
+      setListening(false); setVoiceStatus("processing");
+      setTimeout(() => send(transcript), 300);
+    };
+    r.onerror  = () => { setListening(false); setVoiceStatus("idle"); };
+    r.onend    = () => { setListening(false); if (voiceStatus === "listening") setVoiceStatus("idle"); };
+    r.start();
+  };
+
+  const stopListening = () => {
+    recognRef.current?.stop();
+    setListening(false); setVoiceStatus("idle");
+  };
+
+  const statusLabel = { idle:"", listening:"Listening...", processing:"Processing...", speaking:"Speaking..." };
 
   return (
-    <div className={`fixed bottom-6 ${pos} z-[9999] w-[380px] max-w-[calc(100vw-24px)] flex flex-col rounded-2xl overflow-hidden shadow-2xl border border-white/10 bg-[#0d1526]`}
-      style={{ maxHeight: "min(600px, calc(100vh - 80px))" }}>
+    <div style={{ fontFamily:"Inter,sans-serif", background:"#050d1a", minHeight:"100vh", display:"flex", flexDirection:"column", color:"white" }}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        @keyframes bounce {0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+        @keyframes spin {from{transform:rotate(0)}to{transform:rotate(360deg)}}
+        @keyframes pulse {0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}
+        .dot-bounce { animation: bounce 1s ease-in-out infinite; }
+        .spin { animation: spin 1.5s linear infinite; }
+        .pulse { animation: pulse 1.5s ease-in-out infinite; }
+        ::-webkit-scrollbar { width:4px; }
+        ::-webkit-scrollbar-track { background:transparent; }
+        ::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.1); border-radius:4px; }
+      `}</style>
 
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 flex-shrink-0"
-        style={{ background: `linear-gradient(135deg, ${pc}ee, ${pc}88)` }}>
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl overflow-hidden bg-white/20 flex items-center justify-center flex-shrink-0">
-            <img src={LOGO_URL} alt="" className="w-full h-full object-cover"
-              onError={e => { e.target.style.display = "none"; }} />
-          </div>
-          <div>
-            <p className="text-sm font-bold text-white">{cfg.name}</p>
-            <p className="text-[10px] text-white/70 flex items-center gap-1">
-              <span className={`w-1.5 h-1.5 rounded-full inline-block ${
-                voiceStatus === "listening"  ? "bg-red-400 animate-pulse" :
-                voiceStatus === "processing" ? "bg-amber-400 animate-pulse" :
-                voiceStatus === "speaking"   ? "bg-blue-400 animate-pulse" :
-                "bg-emerald-400"
-              }`} />
-              {voiceStatus === "idle" ? "Online" : voiceStatus === "listening" ? "Listening..." :
-               voiceStatus === "processing" ? "Thinking..." : "Speaking..."}
-            </p>
-          </div>
+      <div style={{ padding:"16px 20px", borderBottom:"1px solid rgba(255,255,255,0.06)", background:"rgba(255,255,255,0.02)", display:"flex", alignItems:"center", gap:"12px", flexShrink:0 }}>
+        <div style={{ width:40, height:40, borderRadius:12, overflow:"hidden", border:`1px solid ${cfg.color}44`, flexShrink:0 }}>
+          <img src={cfg.logo} alt="" style={{ width:"100%", height:"100%", objectFit:"cover" }} onError={e=>e.target.style.display="none"} />
         </div>
-        <div className="flex gap-1">
-          {voiceOk && cfg.mode !== "text" && (
-            <button onClick={() => setMode(m => m === "text" ? "voice" : "text")}
-              className="p-1.5 rounded-lg bg-white/15 hover:bg-white/25 text-white transition-colors">
-              {mode === "text" ? <Phone className="w-3.5 h-3.5" /> : <MessageSquare className="w-3.5 h-3.5" />}
-            </button>
-          )}
-          <button onClick={() => setVoiceOn(v => !v)} className="p-1.5 rounded-lg bg-white/15 hover:bg-white/25 text-white transition-colors">
-            {voiceOn ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
+        <div style={{ flex:1 }}>
+          <p style={{ fontWeight:700, fontSize:14, margin:0 }}>Sree AI</p>
+          <p style={{ fontSize:11, color:cfg.color, margin:0, opacity:0.8 }}>MARKETER</p>
+        </div>
+        <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+          <button onClick={()=>setMuted(!muted)} title={muted?"Unmute":"Mute"}
+            style={{ background:"none", border:"none", cursor:"pointer", color:muted?"#64748b":cfg.color, padding:4 }}>
+            {muted ? <VolumeX size={16}/> : <Volume2 size={16}/>}
           </button>
-          <button onClick={() => setIsOpen(false)} className="p-1.5 rounded-lg bg-white/15 hover:bg-white/25 text-white transition-colors">
-            <X className="w-3.5 h-3.5" />
-          </button>
+          <div style={{ width:8, height:8, borderRadius:"50%", background:listening||speaking?"#10b981":"#64748b" }} />
         </div>
       </div>
 
-      {/* Voice mode */}
-      {mode === "voice" && voiceOk && cfg.mode !== "text" ? (
-        <div className="flex-1 flex flex-col items-center justify-center p-8 bg-gradient-to-b from-[#0d1526] to-[#060c1a] min-h-[280px]">
-          <div className="relative mb-5">
-            <div className={`w-20 h-20 rounded-full flex items-center justify-center text-white shadow-2xl transition-all ${listening ? "scale-110" : ""}`}
-              style={{ background: `radial-gradient(circle, ${pc}dd, ${pc})`, boxShadow: listening ? `0 0 40px ${pc}50` : `0 8px 30px ${pc}25` }}>
-              {speaking ? <Volume2 className="w-9 h-9" /> : loading ? <Loader2 className="w-9 h-9 animate-spin" /> : <Mic className="w-9 h-9" />}
-            </div>
-            {listening && <div className="absolute inset-0 rounded-full border-4 animate-ping" style={{ borderColor: `${pc}40` }} />}
-          </div>
-          <p className="font-semibold text-base text-white mb-1">
-            {listening ? "Listening..." : speaking ? "Speaking..." : loading ? "Thinking..." : "Tap to speak"}
-          </p>
-          {liveText && <p className="text-sm text-slate-400 italic mb-3 text-center max-w-[240px]">"{liveText}"</p>}
-          {messages.length > 1 && messages[messages.length - 1].role === "assistant" && (
-            <div className="max-w-[260px] rounded-2xl bg-white/5 p-3 mb-5 text-center">
-              <p className="text-xs text-slate-300">
-                {messages[messages.length - 1].content.substring(0, 120)}
-                {messages[messages.length - 1].content.length > 120 ? "..." : ""}
-              </p>
-            </div>
-          )}
-          <button onClick={listening ? stopListen : startListen} disabled={loading || speaking}
-            className="h-11 px-7 rounded-full text-white font-semibold text-sm disabled:opacity-50 shadow-lg transition-all"
-            style={{ background: listening ? "#ef4444" : `linear-gradient(135deg, ${pc}, ${pc}cc)`, boxShadow: `0 4px 20px ${pc}40` }}>
-            {listening ? "Stop" : "Speak"}
-          </button>
-        </div>
-      ) : (
-        <>
-          {/* Messages */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-[#0d1526]">
-            {messages.map((m, i) => (
-              <div key={i} className={`flex gap-2 ${m.role === "user" ? "justify-end" : ""}`}>
-                {m.role === "assistant" && (
-                  <div className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 text-white"
-                    style={{ background: `linear-gradient(135deg, ${pc}, ${pc}aa)` }}>
-                    <Bot className="w-3.5 h-3.5" />
-                  </div>
-                )}
-                <div className={`max-w-[78%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ${
-                  m.role === "user" ? "text-white rounded-tr-sm" : "bg-white/5 text-slate-200 rounded-tl-sm"
-                }`} style={m.role === "user" ? { background: `linear-gradient(135deg, ${pc}, ${pc}cc)` } : {}}>
-                  {m.content}
-                </div>
-              </div>
-            ))}
-            {loading && (
-              <div className="flex gap-2">
-                <div className="w-7 h-7 rounded-full flex-shrink-0 text-white flex items-center justify-center"
-                  style={{ background: `linear-gradient(135deg, ${pc}, ${pc}aa)` }}>
-                  <Bot className="w-3.5 h-3.5" />
-                </div>
-                <div className="rounded-2xl rounded-tl-sm px-4 py-3 bg-white/5">
-                  <span className="flex gap-1">
-                    {[0, 1, 2].map(i => <span key={i} className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />)}
-                  </span>
-                </div>
+      {/* Messages */}
+      <div style={{ flex:1, overflowY:"auto", padding:"16px 12px", display:"flex", flexDirection:"column", gap:10 }}>
+        {msgs.map((m,i) => (
+          <div key={i} style={{ display:"flex", justifyContent:m.role==="user"?"flex-end":"flex-start", gap:8, alignItems:"flex-end" }}>
+            {m.role==="assistant" && (
+              <div style={{ width:28, height:28, borderRadius:"50%", background:`linear-gradient(135deg,${cfg.color},${cfg.color}99)`, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+                <Bot size={14} color="white"/>
               </div>
             )}
-            <div ref={bottomRef} />
+            <div style={{ maxWidth:"78%", padding:"10px 14px", borderRadius:m.role==="user"?"16px 16px 4px 16px":"4px 16px 16px 16px", fontSize:13, lineHeight:1.5,
+              background:m.role==="user" ? `linear-gradient(135deg,${cfg.color},${cfg.color}bb)` : "rgba(255,255,255,0.05)",
+              color:m.role==="user"?"white":"#cbd5e1" }}>
+              {m.content}
+            </div>
           </div>
-          {/* Input */}
-          <div className="px-3 py-3 border-t border-white/5 bg-[#0d1526] flex-shrink-0">
-            <form onSubmit={e => { e.preventDefault(); send(input); }}
-              className="flex items-center gap-2 rounded-xl border border-white/8 bg-white/5 px-3 py-2">
-              <input value={input} onChange={e => setInput(e.target.value)}
-                placeholder={`Message ${cfg.name}...`}
-                className="flex-1 text-sm bg-transparent outline-none text-white placeholder-slate-600" />
-              {voiceOk && cfg.mode !== "text" && (
-                <button type="button" onClick={listening ? stopListen : startListen}
-                  className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 transition-colors ${
-                    listening ? "bg-red-500 text-white" : "bg-white/10 text-slate-400 hover:bg-white/20"
-                  }`}>
-                  {listening ? <MicOff className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5" />}
-                </button>
-              )}
-              <button type="submit" disabled={loading || !input.trim()}
-                className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 text-white disabled:opacity-40"
-                style={{ background: `linear-gradient(135deg, ${pc}, ${pc}cc)` }}>
-                <Send className="w-3.5 h-3.5" />
-              </button>
-            </form>
-            <p className="text-[9px] text-center mt-1.5 text-slate-500">
-              Powered by <strong className="text-slate-400">AEVOICE.AI</strong> · Sree: The assistant no business can afford to be without.
-            </p>
+        ))}
+        {loading && (
+          <div style={{ display:"flex", gap:8, alignItems:"flex-end" }}>
+            <div style={{ width:28, height:28, borderRadius:"50%", background:`linear-gradient(135deg,${cfg.color},${cfg.color}99)`, display:"flex", alignItems:"center", justifyContent:"center" }}>
+              <Bot size={14} color="white"/>
+            </div>
+            <div style={{ background:"rgba(255,255,255,0.05)", padding:"10px 14px", borderRadius:"4px 16px 16px 16px", display:"flex", gap:4, alignItems:"center" }}>
+              {[0,1,2].map(j => <span key={j} className="dot-bounce" style={{ width:6, height:6, borderRadius:"50%", background:"#64748b", display:"inline-block", animationDelay:`${j*0.15}s` }}/>)}
+            </div>
           </div>
-        </>
+        )}
+        <div ref={bottomRef}/>
+      </div>
+
+      {/* Voice status bar */}
+      {voiceStatus !== "idle" && (
+        <div style={{ textAlign:"center", padding:"6px", fontSize:12, color:cfg.color, background:"rgba(255,255,255,0.02)", borderTop:"1px solid rgba(255,255,255,0.04)" }}>
+          {listening && <span className="pulse" style={{display:"inline-block"}}>🎙️</span>} {statusLabel[voiceStatus]}
+        </div>
       )}
+
+      {/* Input area */}
+      <div style={{ padding:"12px", borderTop:"1px solid rgba(255,255,255,0.06)", background:"rgba(255,255,255,0.02)", display:"flex", gap:8, alignItems:"flex-end" }}>
+        {cfg.mode !== "text" && (
+          <button onClick={listening ? stopListening : startListening}
+            className={listening ? "pulse" : ""}
+            style={{ width:40, height:40, borderRadius:12, border:"none", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0,
+              background: listening ? `linear-gradient(135deg,#ef4444,#dc2626)` : `linear-gradient(135deg,${cfg.color},${cfg.color}bb)` }}>
+            {listening ? <MicOff size={16} color="white"/> : <Mic size={16} color="white"/>}
+          </button>
+        )}
+        <textarea value={input} onChange={e=>setInput(e.target.value)}
+          onKeyDown={e=>{ if(e.key==="Enter"&&!e.shiftKey){ e.preventDefault(); send(); } }}
+          placeholder="Ask me anything..."
+          rows={1}
+          style={{ flex:1, background:"rgba(255,255,255,0.06)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:12, padding:"10px 12px", color:"white", fontSize:13, outline:"none", resize:"none", fontFamily:"inherit", lineHeight:1.5 }} />
+        <button onClick={()=>send()} disabled={!input.trim()||loading}
+          style={{ width:40, height:40, borderRadius:12, border:"none", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, opacity:(!input.trim()||loading)?0.4:1,
+            background:`linear-gradient(135deg,${cfg.color},${cfg.color}bb)` }}>
+          {loading ? <Loader2 size={16} color="white" className="spin"/> : <Send size={16} color="white"/>}
+        </button>
+      </div>
+
+      {/* Powered by */}
+      <div style={{ textAlign:"center", padding:"8px", fontSize:10, color:"#334155" }}>
+        Powered by Sree AI · <a href="https://aevoice.ai" style={{color:"#334155"}} target="_blank">AEVOICE.AI</a>
+      </div>
     </div>
   );
 }
