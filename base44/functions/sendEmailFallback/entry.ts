@@ -5,8 +5,9 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
  * Primary:  Resend (RESEND_API_KEY)
  * Fallback: SendGrid (SENDGRID_API_KEY)
  *
- * Used for: beta invites, approval emails, admin notifications.
- * Base44 Core.SendEmail is NOT used here — it blocks external recipients.
+ * From address uses RESEND_FROM_EMAIL env var if set, otherwise falls back
+ * to Resend's shared onboarding domain (works without DNS verification).
+ * Set RESEND_FROM_EMAIL=noreply@aevoice.ai once domain is verified in Resend.
  */
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -39,7 +40,8 @@ Deno.serve(async (req) => {
     }
 
     const fromName = from_name || 'AEVOICE';
-    const fromEmail = 'noreply@aevoice.ai';
+    // Use verified custom domain if set, else use Resend shared sender (no DNS needed)
+    const fromEmail = Deno.env.get('RESEND_FROM_EMAIL') || 'onboarding@resend.dev';
     const htmlContent = html || `<pre style="font-family:sans-serif;white-space:pre-wrap">${body}</pre>`;
 
     // ── PRIMARY: Resend ──────────────────────────────────────────────────────
@@ -71,7 +73,7 @@ Deno.serve(async (req) => {
       const errText = await res.text();
       console.error(`Resend failed (${res.status}): ${errText} — falling back to SendGrid`);
     } else {
-      console.warn('RESEND_API_KEY not set — skipping to SendGrid fallback');
+      console.warn('RESEND_API_KEY not set — falling back to SendGrid');
     }
 
     // ── FALLBACK: SendGrid ───────────────────────────────────────────────────
@@ -83,9 +85,10 @@ Deno.serve(async (req) => {
       );
     }
 
+    const sgFromEmail = Deno.env.get('SENDGRID_FROM_EMAIL') || 'noreply@aevoice.ai';
     const sgPayload: any = {
       personalizations: [{ to: [{ email: to }] }],
-      from: { email: fromEmail, name: fromName },
+      from: { email: sgFromEmail, name: fromName },
       subject,
       content: [
         { type: 'text/plain', value: body },
