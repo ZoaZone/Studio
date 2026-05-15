@@ -1,4 +1,4 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 
 /**
  * sendEmailFallback — Sends transactional emails to ANY external address.
@@ -29,6 +29,7 @@ Deno.serve(async (req) => {
   }
 
   try {
+    const base44 = createClientFromRequest(req);
     const { to, subject, body, text, html, from_name } = await req.json();
     if (!to || !subject || (!body && !text && !html)) {
       return Response.json({ error: 'to, subject, and body/text are required' }, {
@@ -37,75 +38,76 @@ Deno.serve(async (req) => {
       });
     }
 
-    const fromName = from_name || 'Agent Marketer';
-    // media.aevoice.ai is verified in Resend — use as primary fallback domain
+    const fromName = from_name || 'media.aevoice.ai';
     const fromEmail = Deno.env.get('RESEND_FROM_EMAIL') || 'noreply@media.aevoice.ai';
-    const htmlContent = html || `<pre style="font-family:sans-serif;white-space:pre-wrap">${text || body || ''}</pre>`;
+    const plainText = text || body || '';
+    const htmlContent = html || '<pre style="font-family:sans-serif;white-space:pre-wrap">' + plainText + '</pre>';
 
-    // ── PRIMARY: Resend (media.aevoice.ai — verified ✅) ─────────────────────
-    const resendKey = Deno.env.get('RESEND_API_KEY');
-    if (resendKey) {
-      const res = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${resendKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          from: `${fromName} <${fromEmail}>`,
-          to: [to],
-          subject,
-          text: text || body || '',
-          html: htmlContent,
-        }),
-      });
+    let provider = 'none';
 
-      if (res.ok) {
-        const data = await res.json();
-        return Response.json(
-          { success: true, provider: 'resend', domain: 'media.aevoice.ai', id: data.id, to },
-          { headers: { 'Access-Control-Allow-Origin': '*' } }
-        );
-      }
-
-      const errText = await res.text();
-      console.error(`Resend failed (${res.status}): ${errText} — falling back to SendGrid`);
-    } else {
-      console.warn('RESEND_API_KEY not set — falling back to SendGrid');
+    // PRIMARY: Base44 built-in
+    try {
+      await base44.asServiceRole.integrations.Core.SendEmail({ to, subject, body: plainText });
+      provider = 'base44';
+    } catch (e) {
+      console.warn('Base44 SendEmail failed, trying Resend:', e.message);
     }
 
-    // ── FALLBACK: SendGrid ───────────────────────────────────────────────────
-    const sendgridKey = Deno.env.get('SENDGRID_API_KEY');
-    if (!sendgridKey) {
+    // SECONDARY: Resend
+    if (provider === 'none') {
+      const resendKey = Deno.env.get('RESEND_API_KEY');
+      if (resendKey) {
+        const res = await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: { Authorization: 'Bearer ' + resendKey, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            from: fromName + ' <' + fromEmail + '>',
+            to: [to],
+            subject,
+            text: plainText,
+            html: htmlContent,
+          }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          provider = 'resend';
+          return Response.json(
+            { success: true, provider, id: data.id, to },
+            { headers: { 'Access-Control-Allow-Origin': '*' } }
+          );
+        }
+        console.error('Resend failed:', await res.text());
+      }
+    } else {
       return Response.json(
-        { error: 'No email provider configured. Set RESEND_API_KEY or SENDGRID_API_KEY.' },
-        { status: 500, headers: { 'Access-Control-Allow-Origin': '*' } }
+        { success: true, provider, to },
+        { headers: { 'Access-Control-Allow-Origin': '*' } }
       );
     }
 
-    const sgFromEmail = Deno.env.get('SENDGRID_FROM_EMAIL') || 'noreply@aevoice.ai';
-    const sgPayload: any = {
-      personalizations: [{ to: [{ email: to }] }],
-      from: { email: sgFromEmail, name: fromName },
-      subject,
-      content: [
-        { type: 'text/plain', value: text || body || '' },
-        { type: 'text/html', value: htmlContent },
-      ],
-    };
+    // TERTIARY: SendGrid
+    const sendgridKey = Deno.env.get('SENDGRID_API_KEY');
+    if (!sendgridKey) {
+      throw new Error('No email provider available. Set RESEND_API_KEY or SENDGRID_API_KEY.');
+    }
 
+    const sgFromEmail = Deno.env.get('SENDGRID_FROM_EMAIL') || 'noreply@aevoice.ai';
     const sgRes = await fetch('https://api.sendgrid.com/v3/mail/send', {
       method: 'POST',
-      headers: {
-        Authorization: `Bearer ${sendgridKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(sgPayload),
+      headers: { Authorization: 'Bearer ' + sendgridKey, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        personalizations: [{ to: [{ email: to }] }],
+        from: { email: sgFromEmail, name: fromName },
+        subject,
+        content: [
+          { type: 'text/plain', value: plainText },
+          { type: 'text/html', value: htmlContent },
+        ],
+      }),
     });
 
     if (!sgRes.ok) {
-      const errText = await sgRes.text();
-      throw new Error(`SendGrid error ${sgRes.status}: ${errText}`);
+      throw new Error('SendGrid error ' + sgRes.status + ': ' + await sgRes.text());
     }
 
     return Response.json(
@@ -113,7 +115,7 @@ Deno.serve(async (req) => {
       { headers: { 'Access-Control-Allow-Origin': '*' } }
     );
 
-  } catch (error: any) {
+  } catch (error) {
     console.error('sendEmailFallback error:', error);
     return Response.json(
       { error: error.message },
