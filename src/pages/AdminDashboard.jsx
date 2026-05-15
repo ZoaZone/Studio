@@ -47,57 +47,22 @@ export default function AdminDashboard() {
     setTimeout(()=>setLinkCopied(false),2000);
   };
 
-  // Generate a secure random token for invite links
-  const makeToken = () => {
-    const arr = new Uint8Array(24);
-    crypto.getRandomValues(arr);
-    return Array.from(arr).map(b => b.toString(16).padStart(2,"0")).join("");
-  };
-
-  // Send one invite — creates BetaInvite record + fires email via sendEmailFallback
-  const sendOneInvite = async (email, fullName = "", note = "", source = "manual_invite") => {
-    const token = makeToken();
-    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
-    const inviteUrl = `https://media.aevoice.ai/invite/${token}`;
-    const firstName = fullName ? fullName.split(" ")[0] : "";
-
-    // 1. Create BetaInvite record in this app's database
-    await base44.entities.BetaInvite.create({
-      email,
-      token,
-      invited_by: "admin",
-      note: note || "",
-      status: "pending",
-      expires_at: expiresAt,
-      source,
-    });
-
-    // 2. Send branded invite email via sendEmailFallback (deployed in this app)
-    const htmlBody = `<!DOCTYPE html><html><head><meta charset="utf-8"/></head><body style="margin:0;padding:0;background:#0a0a0a;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;"><table width="100%" cellpadding="0" cellspacing="0" style="background:#0a0a0a;padding:40px 20px;"><tr><td align="center"><table width="560" cellpadding="0" cellspacing="0" style="background:#111118;border-radius:24px;border:1px solid #1f1f2e;overflow:hidden;max-width:560px;width:100%;"><tr><td style="background:linear-gradient(135deg,#7c3aed,#a855f7,#ec4899);padding:36px 40px;text-align:center;"><div style="font-size:28px;font-weight:900;color:#fff;letter-spacing:-1px;">media.aevoice.ai</div><div style="font-size:13px;color:rgba(255,255,255,0.7);margin-top:4px;">AI Marketing & Media Creation Platform</div></td></tr><tr><td style="padding:40px;"><h1 style="color:#fff;font-size:24px;font-weight:800;margin:0 0 16px;">${firstName ? `Hi ${firstName}, you're` : "You're"} invited to join<br/><span style="color:#a855f7;">media.aevoice.ai Beta</span></h1>${note ? `<div style="background:#1a1a2e;border-left:3px solid #a855f7;border-radius:8px;padding:14px 16px;margin-bottom:20px;"><p style="color:#ccc;font-size:14px;margin:0;font-style:italic;">"${note}"</p></div>` : ""}<p style="color:#888;font-size:15px;line-height:1.6;margin:0 0 24px;">You've been personally selected for exclusive early access — full Agency-tier access, free.</p><table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:28px;"><tr><td style="padding:4px 0;color:#ccc;font-size:14px;">✅ Full Agency-tier access — free for 1 year</td></tr><tr><td style="padding:4px 0;color:#ccc;font-size:14px;">✅ AI Media Studio — visuals, copy, video scripts</td></tr><tr><td style="padding:4px 0;color:#ccc;font-size:14px;">✅ Multi-channel: Email · SMS · WhatsApp · Social</td></tr></table><div style="text-align:center;margin-bottom:28px;"><a href="${inviteUrl}" style="display:inline-block;background:linear-gradient(135deg,#7c3aed,#a855f7);color:#fff;text-decoration:none;font-size:16px;font-weight:700;padding:16px 40px;border-radius:14px;">🚀 Claim My Free Access</a></div><div style="background:#0a0a0a;border:1px solid #1f1f2e;border-radius:10px;padding:14px 16px;margin-bottom:16px;"><p style="color:#666;font-size:11px;margin:0 0 6px;text-transform:uppercase;">Your invite link</p><p style="color:#a855f7;font-size:13px;margin:0;word-break:break-all;">${inviteUrl}</p></div><p style="color:#555;font-size:13px;margin:0;">Expires in 30 days · Questions? <a href="mailto:hello@aevoice.ai" style="color:#a855f7;">hello@aevoice.ai</a></p></td></tr><tr><td style="background:#0d0d14;padding:20px 40px;border-top:1px solid #1f1f2e;text-align:center;"><p style="color:#444;font-size:12px;margin:0;">© 2026 AEVOICE · media.aevoice.ai</p></td></tr></table></td></tr></table></body></html>`;
-    const plainText = `Hi${firstName ? ` ${firstName}` : ""}!\n\nYou've been invited to media.aevoice.ai Beta.\n\nClaim your access: ${inviteUrl}\n\nExpires in 30 days.\n\n— The media.aevoice.ai Team`;
-
-    await base44.functions.invoke("sendEmailFallback", {
-      to: email,
-      subject: "🎉 You're personally invited — Free Beta Access to media.aevoice.ai",
-      html: htmlBody,
-      text: plainText,
-    });
-
-    return inviteUrl;
-  };
-
   const sendBetaInvites = async () => {
     const emails = inviteEmails.split(/[\n,;]+/).map(e=>e.trim()).filter(Boolean);
-    if(!emails.length) return;
+    if (!emails.length) return;
     setInviting(true);
     setInviteResults([]);
-    const results=[];
-    for(const email of emails){
-      try{
-        await sendOneInvite(email, "", inviteNote || "", "manual_invite");
-        results.push({email, status:"success"});
-      } catch(err){
-        results.push({email, status:"error", msg: err.message});
+    const results = [];
+    for (const email of emails) {
+      try {
+        await base44.functions.invoke("sendBetaInvite", {
+          email,
+          note: inviteNote || "",
+          source: "manual_invite",
+        });
+        results.push({ email, status: "success" });
+      } catch (err) {
+        results.push({ email, status: "error", msg: err.message });
       }
     }
     setInviteResults(results);
@@ -115,7 +80,12 @@ export default function AdminDashboard() {
         status: "active",
         current_period_end: new Date(Date.now()+365*24*60*60*1000).toISOString(),
       });
-      await sendOneInvite(req.email, req.full_name || "", "", "beta_request_approved");
+      await base44.functions.invoke("sendBetaInvite", {
+        email: req.email,
+        full_name: req.full_name || "",
+        note: "",
+        source: "beta_request_approved",
+      });
       await base44.entities.BetaRequest.update(req.id, { status: "approved", invite_sent: true });
       refetchBeta();
       qc.invalidateQueries(["admin_subs"]);
