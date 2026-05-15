@@ -180,7 +180,7 @@ export default function BetaOnboarding() {
         <div className="flex items-center justify-center gap-3 mb-8">
           <img src={M_LOGO} alt="" className="w-10 h-10 rounded-xl" onError={e => e.target.style.display = "none"} />
           <span className="text-2xl font-black bg-gradient-to-r from-fuchsia-400 to-purple-400 bg-clip-text text-transparent tracking-tight">
-            MARKETER
+            media.aevoice.ai
           </span>
         </div>
 
@@ -219,7 +219,7 @@ export default function BetaOnboarding() {
               <h1 className="text-2xl font-black text-white mb-2">
                 You're invited to<br />
                 <span className="bg-gradient-to-r from-fuchsia-400 to-purple-400 bg-clip-text text-transparent">
-                  MARKETER Beta
+                  media.aevoice.ai Beta
                 </span>
               </h1>
               <p className="text-white/50 text-sm mb-1">Invite reserved for</p>
@@ -322,7 +322,7 @@ export default function BetaOnboarding() {
                 </div>
                 <div>
                   <h2 className="text-lg font-bold text-white">Tell Us About You</h2>
-                  <p className="text-white/40 text-xs">Personalise your MARKETER experience</p>
+                  <p className="text-white/40 text-xs">Personalise your media.aevoice.ai experience</p>
                 </div>
               </div>
 
@@ -354,7 +354,7 @@ export default function BetaOnboarding() {
                   />
                 </div>
                 <div>
-                  <label className="text-white/60 text-xs font-medium mb-1.5 block">What will you use MARKETER for?</label>
+                  <label className="text-white/60 text-xs font-medium mb-1.5 block">What will you use media.aevoice.ai for?</label>
                   <select
                     value={useCase}
                     onChange={e => setUseCase(e.target.value)}
@@ -392,7 +392,7 @@ export default function BetaOnboarding() {
                 You're in, {fullName.split(" ")[0] || "there"}! 🎉
               </h2>
               <p className="text-white/50 text-sm mb-6">
-                Full Agency-tier access activated. Welcome to the MARKETER beta — let's build something great.
+                Full Agency-tier access activated. Welcome to the media.aevoice.ai beta — let's build something great.
               </p>
               <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-2xl p-4 mb-6 text-left space-y-2">
                 <p className="text-emerald-400 font-semibold text-sm">What's unlocked:</p>
