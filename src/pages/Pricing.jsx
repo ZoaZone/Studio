@@ -99,7 +99,7 @@ export default function Pricing() {
             <span className="text-lg font-black bg-gradient-to-r from-fuchsia-400 to-purple-400 bg-clip-text text-transparent">MARKETER</span>
           </div>
           <h1 className="text-4xl md:text-5xl font-black mb-4">Choose your plan</h1>
-          <p className="text-white/50 text-lg mb-8">Start free for 14 days. No credit card required.</p>
+          <p className="text-white/50 text-lg mb-8">Choose the plan that fits your growth.</p>
 
           {/* Billing toggle */}
           <div className="inline-flex items-center bg-white/5 border border-white/10 rounded-xl p-1">
@@ -148,7 +148,7 @@ export default function Pricing() {
                       : "border border-white/15 text-white/80 hover:border-white/30 hover:text-white"
                   } disabled:opacity-60`}>
                   {loadingPlan === plan.name ? <Loader2 className="w-4 h-4 animate-spin" /> :
-                   <>Start Free Trial <ArrowRight className="w-4 h-4" /></>}
+                   <>Get Started <ArrowRight className="w-4 h-4" /></>}
                 </button>
                 {isIndia && (
                   <div className="mt-3">
