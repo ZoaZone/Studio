@@ -5,11 +5,14 @@ import { base44 } from "@/api/base44Client";
 import {
   Sparkles, Image, FileText, Megaphone, Hash, Loader2, Download,
   Copy, CheckCircle2, RefreshCw, Wand2, Video, Mic, Mail, MessageSquare,
-  Globe, Palette, Play, Film, Zap, Star, ChevronDown, ChevronUp, Layers
+  Globe, Palette, Play, Film, Zap, Star, ChevronDown, ChevronUp, Layers,
+  Clapperboard, Volume2, Music, AlignLeft
 } from "lucide-react";
 
 // ── Creative Types ──────────────────────────────────────────────────────────
 const TYPES = [
+  // Video Generation
+  { id: "ai_video",      label: "AI Video",       Icon: Clapperboard, desc: "Generate real video with audio",  color: "from-rose-500 to-red-600",        category: "video" },
   // Visual
   { id: "image",         label: "AI Image",       Icon: Image,        desc: "Platform-ready images",           color: "from-fuchsia-500 to-purple-600",  category: "visual" },
   { id: "video_script",  label: "Video Script",   Icon: Video,        desc: "Full scene-by-scene script",      color: "from-rose-500 to-pink-600",       category: "visual" },
@@ -32,6 +35,7 @@ const TYPES = [
 
 const CATEGORIES = [
   { id: "all",      label: "All" },
+  { id: "video",    label: "🎬 Video" },
   { id: "visual",   label: "🎨 Visual" },
   { id: "copy",     label: "✍️ Copy" },
   { id: "messaging",label: "📨 Messaging" },
@@ -45,6 +49,16 @@ const PLATFORMS = [
 const TONES = ["Professional", "Casual", "Exciting", "Urgent", "Friendly", "Luxury", "Humorous", "Inspirational"];
 const VIDEO_STYLES = ["Talking Head", "Slideshow", "Animation", "Product Demo", "Testimonial", "Tutorial", "Short-form Reel", "Documentary"];
 const VIDEO_DURATIONS = ["15 seconds", "30 seconds", "60 seconds", "2 minutes", "5 minutes", "10 minutes"];
+const AI_VIDEO_FORMATS = [
+  { label: "Reel / TikTok / Short (9:16)", aspect: "9:16", duration: 6 },
+  { label: "YouTube / Landscape (16:9)",   aspect: "16:9", duration: 6 },
+  { label: "Square Feed (1:1) → 16:9",    aspect: "16:9", duration: 4 },
+];
+const AI_VIDEO_DURATIONS = [
+  { label: "4 seconds", value: 4 },
+  { label: "6 seconds", value: 6 },
+  { label: "8 seconds", value: 8 },
+];
 const IMAGE_DIMS = [
   { label: "1080×1080 – Square (Feed)",        value: "1080x1080" },
   { label: "1080×1920 – Story / Reel",         value: "1080x1920" },
@@ -100,7 +114,9 @@ export default function MediaStudio() {
   const [activeCat, setActiveCat] = useState("all");
   const [form, setForm] = useState({
     prompt: "", platform: "Instagram", tone: "Professional",
-    dimensions: "1080x1080", videoStyle: "Short-form Reel", videoDuration: "60 seconds"
+    dimensions: "1080x1080", videoStyle: "Short-form Reel", videoDuration: "60 seconds",
+    videoAspect: "9:16", videoSeconds: 6,
+    audioNote: "", captionStyle: "minimal"
   });
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -111,6 +127,7 @@ export default function MediaStudio() {
   const activeTypeObj = TYPES.find(t => t.id === activeType);
   const isVisual = activeType === "image" || activeType === "thumbnail";
   const isVideoType = activeType === "video_script" || activeType === "video_storyboard";
+  const isAiVideo = activeType === "ai_video";
   const isLongForm = ["blog_post", "brand_voice", "press_release", "brand_bio"].includes(activeType);
 
   const filteredTypes = activeCat === "all" ? TYPES : TYPES.filter(t => t.category === activeCat);
@@ -121,7 +138,23 @@ export default function MediaStudio() {
     setResult(null);
 
     try {
-      if (isVisual) {
+      if (isAiVideo) {
+        // ── Real AI Video Generation ──────────────────────────────────────
+        const audioHint = form.audioNote ? ` Audio direction: ${form.audioNote}.` : "";
+        const videoPrompt = `${form.prompt}. Platform: ${form.platform}. Tone: ${form.tone}. Style: cinematic, high quality, professional marketing video.${audioHint}`;
+        const videoRes = await base44.integrations.Core.GenerateVideo({
+          prompt: videoPrompt,
+          duration: form.videoSeconds,
+          aspect_ratio: form.videoAspect,
+        });
+        // Generate captions using LLM
+        const captionPrompt = `Generate ${form.captionStyle === "full" ? "full sentence" : "short punchy"} captions/subtitles for a ${form.videoSeconds}-second video about: "${form.prompt}". Platform: ${form.platform}. Format as timestamped lines:\n[0:00] caption text\n[0:02] next caption\n...`;
+        const captionRes = await base44.functions.invoke("generateMediaContent", {
+          type: "caption", platform: form.platform, tone: form.tone, prompt: captionPrompt,
+        });
+        const captions = captionRes?.content || captionRes?.data?.content || captionRes?.text || captionRes?.data?.text || "";
+        setResult({ type: "video", url: videoRes?.url, captions: typeof captions === "string" ? captions : "" });
+      } else if (isVisual) {
         // ── Real Image Generation ──────────────────────────────────────────
         const styleHint = activeType === "thumbnail"
           ? `YouTube thumbnail style, bold text overlay, high contrast, eye-catching`
@@ -148,8 +181,9 @@ export default function MediaStudio() {
         setResult({ type: "text", text: typeof text === "string" ? text : JSON.stringify(text, null, 2) });
       }
     } catch (err) {
-      if (!isVisual) {
-        // Graceful fallback: use built-in prompt display
+      if (isAiVideo) {
+        alert("Video generation error: " + err.message);
+      } else if (!isVisual) {
         setResult({ type: "text", text: buildPrompt(activeType, form) + "\n\n[Backend error: " + err.message + "]" });
       } else {
         alert("Generation error: " + err.message);
@@ -166,9 +200,9 @@ export default function MediaStudio() {
   };
 
   const save = async () => {
-    const content = result?.text || result?.url || "";
+    const content = result?.text || result?.captions || result?.url || "";
     await base44.entities.ContentAsset.create({
-      type: activeType,
+      type: activeType === "ai_video" ? "video" : activeType,
       title: form.prompt.slice(0, 60),
       content,
       file_url: result?.url || null,
@@ -298,6 +332,62 @@ export default function MediaStudio() {
             </div>
           )}
 
+          {/* AI Video options */}
+          {isAiVideo && (
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground">Format / Aspect Ratio</label>
+                  <select
+                    value={form.videoAspect}
+                    onChange={e => {
+                      const f = AI_VIDEO_FORMATS.find(f => f.aspect === e.target.value);
+                      setForm(p => ({ ...p, videoAspect: e.target.value, videoSeconds: f?.duration || p.videoSeconds }));
+                    }}
+                    className="w-full h-9 px-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+                    {AI_VIDEO_FORMATS.map(f => <option key={f.aspect} value={f.aspect}>{f.label}</option>)}
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground">Duration</label>
+                  <select
+                    value={form.videoSeconds}
+                    onChange={e => setForm(p => ({ ...p, videoSeconds: Number(e.target.value) }))}
+                    className="w-full h-9 px-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+                    {AI_VIDEO_DURATIONS.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                  <Volume2 className="w-3 h-3" /> Audio / Music Direction (optional)
+                </label>
+                <input
+                  value={form.audioNote}
+                  onChange={e => setForm(p => ({ ...p, audioNote: e.target.value }))}
+                  placeholder="e.g. upbeat background music, voiceover narration, silent with captions…"
+                  className="w-full h-9 px-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                  <AlignLeft className="w-3 h-3" /> Caption Style
+                </label>
+                <select
+                  value={form.captionStyle}
+                  onChange={e => setForm(p => ({ ...p, captionStyle: e.target.value }))}
+                  className="w-full h-9 px-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+                  <option value="minimal">Minimal — short punchy captions</option>
+                  <option value="full">Full — complete sentence subtitles</option>
+                  <option value="none">No captions</option>
+                </select>
+              </div>
+              <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl px-3 py-2 text-xs text-amber-300">
+                ⚡ AI Video uses 20–40 integration credits (4–8s). Generation takes ~30–60 seconds.
+              </div>
+            </div>
+          )}
+
           {/* Video options */}
           {isVideoType && (
             <div className="grid grid-cols-2 gap-3">
@@ -414,16 +504,58 @@ export default function MediaStudio() {
               </div>
               <Loader2 className="w-5 h-5 animate-spin text-fuchsia-400 mb-2" />
               <p className="text-muted-foreground text-sm">
-                {isVisual ? "Generating image with AI…" : "Writing with AI…"}
+                {isAiVideo ? "Generating video with AI…" : isVisual ? "Generating image with AI…" : "Writing with AI…"}
               </p>
-              <p className="text-muted-foreground/40 text-xs mt-1">This takes 5–15 seconds</p>
+              <p className="text-muted-foreground/40 text-xs mt-1">
+                {isAiVideo ? "This takes 30–60 seconds" : "This takes 5–15 seconds"}
+              </p>
             </div>
           )}
 
           {/* Result */}
           {result && !loading && (
             <div className="flex-1 flex flex-col gap-3">
-              {result.type === "image" && result.url ? (
+              {result.type === "video" && result.url ? (
+                <>
+                  <video
+                    src={result.url}
+                    controls
+                    className="w-full rounded-xl shadow-lg bg-black"
+                    style={{ maxHeight: 380 }}
+                  />
+                  <div className="flex gap-2">
+                    <a href={result.url} download target="_blank" rel="noreferrer"
+                      className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl border border-border text-sm font-medium hover:border-fuchsia-500/40 transition-colors">
+                      <Download className="w-4 h-4" /> Download Video
+                    </a>
+                    <button onClick={generate}
+                      className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-fuchsia-500/10 text-fuchsia-400 text-sm font-medium hover:bg-fuchsia-500/20 transition-colors">
+                      <RefreshCw className="w-4 h-4" /> Regenerate
+                    </button>
+                  </div>
+                  {result.captions && form.captionStyle !== "none" && (
+                    <div className="bg-muted/30 rounded-xl p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <AlignLeft className="w-4 h-4 text-fuchsia-400" />
+                        <span className="text-xs font-semibold text-foreground">Generated Captions</span>
+                        <button onClick={async () => { await navigator.clipboard.writeText(result.captions); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
+                          className="ml-auto flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
+                          {copied ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />} Copy
+                        </button>
+                      </div>
+                      <pre className="text-xs text-foreground whitespace-pre-wrap font-sans leading-relaxed max-h-48 overflow-y-auto">
+                        {result.captions}
+                      </pre>
+                    </div>
+                  )}
+                </>
+              ) : result.type === "video" && !result.url ? (
+                <div className="flex flex-col items-center justify-center flex-1 min-h-52 text-center bg-red-500/5 rounded-xl border border-red-500/20">
+                  <p className="text-red-400 text-sm font-medium">Video generation failed</p>
+                  <p className="text-muted-foreground text-xs mt-1">Try again or adjust your prompt</p>
+                  <button onClick={generate} className="mt-3 px-4 py-2 rounded-lg bg-fuchsia-500/10 text-fuchsia-400 text-xs font-medium hover:bg-fuchsia-500/20 transition-colors">Try Again</button>
+                </div>
+              ) : result.type === "image" && result.url ? (
                 <>
                   <img
                     src={result.url}
@@ -483,7 +615,7 @@ export default function MediaStudio() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[
           { label: "Generate Image Set", sub: "4 platform variants", icon: Image, types: ["image"], onClick: () => { setActiveType("image"); setActiveCat("visual"); } },
-          { label: "Full Video Package", sub: "Script + Storyboard", icon: Film, onClick: () => { setActiveType("video_script"); setActiveCat("visual"); } },
+          { label: "AI Video + Captions", sub: "Real video with subtitles", icon: Clapperboard, onClick: () => { setActiveType("ai_video"); setActiveCat("video"); } },
           { label: "Content Bundle", sub: "Caption + Hashtags + Copy", icon: Layers, onClick: () => { setActiveType("caption"); setActiveCat("copy"); } },
           { label: "Brand Kit", sub: "Voice + Bios + PR", icon: Star, onClick: () => { setActiveType("brand_voice"); setActiveCat("branding"); } },
         ].map(item => (
