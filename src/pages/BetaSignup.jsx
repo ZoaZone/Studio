@@ -14,13 +14,8 @@ export default function BetaSignup() {
     setSubmitting(true);
     setError("");
     try {
-      await base44.entities.BetaRequest.create({ ...form, status: "pending" });
-      // Notify admin via email
-      await base44.integrations.Core.SendEmail({
-        to: "hellobizapp@gmail.com",
-        subject: `🚀 New Beta Request from ${form.full_name}`,
-        body: `A new beta access request has been submitted:\n\nName: ${form.full_name}\nEmail: ${form.email}\nCompany: ${form.company || "—"}\nUse Case: ${form.use_case || "—"}\n\nReview and approve in your Admin Dashboard → Beta Invites tab.`,
-      });
+      // Use the public backend function — no auth required
+      await base44.functions.submitBetaRequest({ ...form });
       setDone(true);
     } catch (err) {
       setError("Something went wrong. Please try again.");
