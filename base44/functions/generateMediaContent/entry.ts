@@ -1,4 +1,4 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 
 /**
  * generateMediaContent — AI content generation for all media types
@@ -69,7 +69,25 @@ Deno.serve(async (req) => {
     // Use the incoming prompt if it's already detailed (frontend-built), else use legacy
     const finalPrompt = isRichPrompt ? prompt : (legacyPrompts[type] || legacyPrompts.caption);
 
-    const result = await base44.integrations.Core.InvokeLLM({ prompt: finalPrompt });
+    // Try Base44 LLM first, fall back to OpenAI
+    let result;
+    try {
+      result = await base44.integrations.Core.InvokeLLM({ prompt: finalPrompt });
+    } catch (llmError) {
+      const openaiKey = Deno.env.get("OPENAI_API_KEY");
+      if (!openaiKey) throw llmError;
+      const openaiRes = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${openaiKey}` },
+        body: JSON.stringify({
+          model: "gpt-4o-mini",
+          messages: [{ role: "user", content: finalPrompt }],
+        }),
+      });
+      if (!openaiRes.ok) throw new Error(`OpenAI fallback failed: ${await openaiRes.text()}`);
+      const openaiData = await openaiRes.json();
+      result = openaiData.choices[0].message.content;
+    }
 
     // Persist to ContentAsset
     let asset;
