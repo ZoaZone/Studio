@@ -2,8 +2,6 @@ import { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { Sparkles, Send, CheckCircle2, Loader2 } from "lucide-react";
 
-const M_LOGO = "https://media.base44.com/images/public/69b1f1d60b1fb9d791fddc64/d1aa347a6_generated_image.png";
-
 export default function BetaSignup() {
   const [form, setForm] = useState({ full_name: "", email: "", company: "", use_case: "" });
   const [submitting, setSubmitting] = useState(false);
@@ -35,8 +33,10 @@ export default function BetaSignup() {
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="flex flex-col items-center mb-8">
-          <img src={M_LOGO} alt="Marketer" className="h-12 w-12 rounded-2xl object-cover shadow-lg shadow-fuchsia-500/20 mb-3" onError={e=>e.target.style.display="none"} />
-          <h1 className="text-2xl font-black bg-gradient-to-r from-fuchsia-400 to-purple-400 bg-clip-text text-transparent">MARKETER</h1>
+          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-fuchsia-500 to-purple-600 flex items-center justify-center shadow-lg shadow-fuchsia-500/30 mb-3">
+            <span className="text-white font-black text-2xl tracking-tight">A</span>
+          </div>
+          <h1 className="text-2xl font-black bg-gradient-to-r from-fuchsia-400 to-purple-400 bg-clip-text text-transparent">AEVOICE</h1>
           <p className="text-muted-foreground text-sm mt-1">AI Marketing OS</p>
         </div>
 
@@ -57,7 +57,7 @@ export default function BetaSignup() {
           <div className="bg-card border border-border rounded-2xl p-6 space-y-5">
             <div>
               <h2 className="text-lg font-bold text-foreground">Request Free Beta Access</h2>
-              <p className="text-muted-foreground text-sm mt-1">Get full access to all MARKETER features — free for early beta users. Our team will review and send your invite.</p>
+              <p className="text-muted-foreground text-sm mt-1">Get full access to all AEVOICE features — free for early beta users. Our team will review and send your invite.</p>
             </div>
 
             <div className="bg-gradient-to-r from-fuchsia-500/10 to-purple-500/10 border border-fuchsia-500/20 rounded-xl px-4 py-3 flex items-center gap-2">
@@ -97,7 +97,7 @@ export default function BetaSignup() {
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-xs font-medium text-muted-foreground">How will you use MARKETER? (optional)</label>
+                <label className="text-xs font-medium text-muted-foreground">How will you use AEVOICE? (optional)</label>
                 <textarea
                   value={form.use_case}
                   onChange={e => setForm(p => ({ ...p, use_case: e.target.value }))}
