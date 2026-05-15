@@ -8,7 +8,7 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { prompt, platform, dimensions, client_id } = await req.json();
+    const { prompt, platform, dimensions, client_id, reference_image_urls } = await req.json();
     if (!prompt) {
       return Response.json({ error: 'prompt is required' }, { status: 400 });
     }
@@ -17,6 +17,7 @@ Deno.serve(async (req) => {
 
     const { url } = await base44.integrations.Core.GenerateImage({
       prompt: enhancedPrompt,
+      existing_image_urls: reference_image_urls && reference_image_urls.length ? reference_image_urls : undefined,
     });
 
     // Save to MediaLibraryItem

@@ -6,7 +6,7 @@ import {
   Sparkles, Image, FileText, Megaphone, Hash, Loader2, Download,
   Copy, CheckCircle2, RefreshCw, Wand2, Video, Mic, Mail, MessageSquare,
   Globe, Palette, Play, Film, Zap, Star, ChevronDown, ChevronUp, Layers,
-  Clapperboard, Volume2, Music, AlignLeft
+  Clapperboard, Volume2, Music, AlignLeft, Upload, X, ImagePlus
 } from "lucide-react";
 
 // ── Creative Types ──────────────────────────────────────────────────────────
@@ -126,6 +126,26 @@ export default function MediaStudio() {
   const [copied, setCopied] = useState(false);
   const [saved, setSaved] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [uploadedFiles, setUploadedFiles] = useState([]); // [{name, url, previewUrl, type}]
+  const [uploading, setUploading] = useState(false);
+
+  const handleFileUpload = async (e) => {
+    const files = Array.from(e.target.files);
+    if (!files.length) return;
+    setUploading(true);
+    const results = [];
+    for (const file of files) {
+      const previewUrl = URL.createObjectURL(file);
+      const res = await base44.integrations.Core.UploadFile({ file });
+      results.push({ name: file.name, url: res.file_url, previewUrl, type: file.type });
+    }
+    setUploadedFiles(prev => [...prev, ...results]);
+    setUploading(false);
+  };
+
+  const removeUploadedFile = (idx) => {
+    setUploadedFiles(prev => prev.filter((_, i) => i !== idx));
+  };
 
   const activeTypeObj = TYPES.find(t => t.id === activeType);
   const isVisual = activeType === "image" || activeType === "thumbnail";
@@ -147,11 +167,12 @@ export default function MediaStudio() {
         const numClips = durObj.clips;
         const clipSec = numClips > 1 ? 8 : form.videoSeconds;
         const audioHint = form.audioNote ? ` Audio direction: ${form.audioNote}.` : "";
+        const refHint = uploadedFiles.length ? ` Visual reference provided — maintain the style, colors, and subjects from the uploaded reference media.` : "";
 
         let clipUrls = [];
         for (let i = 0; i < numClips; i++) {
           const sceneHint = numClips > 1 ? ` Scene ${i + 1} of ${numClips}.` : "";
-          const videoPrompt = `${form.prompt}.${sceneHint} Platform: ${form.platform}. Tone: ${form.tone}. Style: cinematic, high quality, professional marketing video. Seamlessly continues the same visual story.${audioHint}`;
+          const videoPrompt = `${form.prompt}.${sceneHint} Platform: ${form.platform}. Tone: ${form.tone}. Style: cinematic, high quality, professional marketing video. Seamlessly continues the same visual story.${audioHint}${refHint}`;
           const res = await base44.integrations.Core.GenerateVideo({
             prompt: videoPrompt,
             duration: clipSec,
@@ -176,10 +197,12 @@ export default function MediaStudio() {
 
         const enhancedPrompt = `${form.prompt}. ${styleHint}. ${form.tone} tone. Optimized for ${form.platform}. High quality, crisp, commercial photography style.`;
 
+        const imageUrls = uploadedFiles.filter(f => f.type.startsWith("image/")).map(f => f.url);
         const res = await base44.functions.invoke("generateImage", {
           prompt: enhancedPrompt,
           platform: form.platform,
           dimensions: form.dimensions,
+          reference_image_urls: imageUrls.length ? imageUrls : undefined,
         });
         setResult({ type: "image", url: res?.file_url || res?.url || res?.data?.url || res?.data?.file_url });
       } else {
@@ -425,6 +448,54 @@ export default function MediaStudio() {
               </div>
             </div>
           )}
+
+          {/* Reference Media Upload */}
+          <div className="space-y-2">
+            <label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+              <ImagePlus className="w-3.5 h-3.5" />
+              Reference Media <span className="text-muted-foreground/50">(optional)</span>
+            </label>
+            <label className={`flex flex-col items-center justify-center w-full border-2 border-dashed rounded-xl py-4 px-3 cursor-pointer transition-all ${uploading ? "border-fuchsia-500/40 bg-fuchsia-500/5" : "border-border hover:border-fuchsia-500/40 hover:bg-fuchsia-500/5"}`}>
+              <input
+                type="file"
+                multiple
+                accept="image/*,video/*"
+                className="hidden"
+                onChange={handleFileUpload}
+                disabled={uploading}
+              />
+              {uploading
+                ? <><Loader2 className="w-4 h-4 animate-spin text-fuchsia-400 mb-1" /><span className="text-xs text-fuchsia-400">Uploading…</span></>
+                : <><Upload className="w-4 h-4 text-muted-foreground mb-1" /><span className="text-xs text-muted-foreground">Click to upload images or videos</span><span className="text-[10px] text-muted-foreground/50 mt-0.5">JPG, PNG, MP4, MOV • multiple files OK</span></>
+              }
+            </label>
+            {uploadedFiles.length > 0 && (
+              <div className="flex flex-wrap gap-2 mt-1">
+                {uploadedFiles.map((f, i) => (
+                  <div key={i} className="relative group">
+                    {f.type.startsWith("image/") ? (
+                      <img src={f.previewUrl} alt={f.name} className="w-14 h-14 rounded-lg object-cover border border-border" />
+                    ) : (
+                      <div className="w-14 h-14 rounded-lg bg-muted flex flex-col items-center justify-center border border-border">
+                        <Film className="w-5 h-5 text-muted-foreground" />
+                        <span className="text-[9px] text-muted-foreground mt-0.5 px-1 truncate w-full text-center">{f.name.slice(0, 8)}</span>
+                      </div>
+                    )}
+                    <button
+                      onClick={() => removeUploadedFile(i)}
+                      className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-destructive text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                      <X className="w-2.5 h-2.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            {uploadedFiles.length > 0 && (
+              <p className="text-[10px] text-muted-foreground/60">
+                {isVisual ? "AI will use these as style / composition reference" : isAiVideo ? "AI will maintain visual consistency from your uploads" : "Uploaded files will inform the AI context"}
+              </p>
+            )}
+          </div>
 
           {/* Generate button */}
           <button
