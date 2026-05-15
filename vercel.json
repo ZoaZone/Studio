@@ -10,8 +10,18 @@
         {
           "key": "X-Content-Language",
           "value": "en"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "no-cache, no-store, must-revalidate"
         }
       ]
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/((?!assets|api|manifest\.json|favicon\.ico).*)",
+      "destination": "/index.html"
     }
   ]
 }
