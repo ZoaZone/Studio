@@ -78,13 +78,13 @@ export default function Login() {
         {/* Logo + brand */}
         <div className="flex flex-col items-center mb-8">
           <div className="w-16 h-16 rounded-2xl overflow-hidden border border-white/10 mb-4 shadow-2xl shadow-violet-500/30">
-            <img src={LOGO} alt="MARKETER" className="w-full h-full object-cover"
+            <img src={LOGO} alt="media.aevoice.ai" className="w-full h-full object-cover"
               onError={e => { e.target.style.display="none"; e.target.parentElement.className += " bg-gradient-to-br from-violet-500 to-purple-700 flex items-center justify-center"; }} />
           </div>
           <h1 className="text-2xl font-black text-white">
             {mode === "login" ? "Welcome back" : mode === "signup" ? "Create account" : "Forgot password?"}
           </h1>
-          <p className="text-slate-500 text-sm mt-1">MARKETER &middot; media.aevoice.ai</p>
+          <p className="text-slate-500 text-sm mt-1">media.aevoice.ai &middot; media.aevoice.ai</p>
         </div>
 
         {/* Form */}
