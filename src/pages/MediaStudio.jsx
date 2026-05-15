@@ -1,188 +1,501 @@
 import { useState } from "react";
 import { useOutletContext } from "react-router-dom";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
-import { Sparkles, Image, FileText, Megaphone, Hash, Loader2, Download, Copy, CheckCircle2, RefreshCw, Wand2 } from "lucide-react";
+import {
+  Sparkles, Image, FileText, Megaphone, Hash, Loader2, Download,
+  Copy, CheckCircle2, RefreshCw, Wand2, Video, Mic, Mail, MessageSquare,
+  Globe, Palette, Play, Film, Zap, Star, ChevronDown, ChevronUp, Layers
+} from "lucide-react";
 
+// ── Creative Types ──────────────────────────────────────────────────────────
 const TYPES = [
-  { id: "image",        label: "AI Image",        Icon: Image,    desc: "Generate platform-ready images",      color: "from-fuchsia-500 to-purple-600" },
-  { id: "caption",      label: "Caption",         Icon: FileText, desc: "AI-written social captions",          color: "from-pink-500 to-rose-600" },
-  { id: "ad_copy",      label: "Ad Copy",         Icon: Megaphone,desc: "Headline + body + CTA",               color: "from-amber-500 to-orange-600" },
-  { id: "hashtag_set",  label: "Hashtag Set",     Icon: Hash,     desc: "Trending hashtags for any niche",     color: "from-emerald-500 to-teal-600" },
-  { id: "email_template",label: "Email Template", Icon: FileText, desc: "Full email with subject + body",      color: "from-blue-500 to-cyan-600" },
-  { id: "sms_template", label: "SMS Template",    Icon: FileText, desc: "Short SMS with CTA",                  color: "from-violet-500 to-indigo-600" },
+  // Visual
+  { id: "image",         label: "AI Image",       Icon: Image,        desc: "Platform-ready images",           color: "from-fuchsia-500 to-purple-600",  category: "visual" },
+  { id: "video_script",  label: "Video Script",   Icon: Video,        desc: "Full scene-by-scene script",      color: "from-rose-500 to-pink-600",       category: "visual" },
+  { id: "video_storyboard", label: "Storyboard",  Icon: Film,         desc: "Shot list + visual directions",   color: "from-orange-500 to-red-600",      category: "visual" },
+  { id: "thumbnail",     label: "Thumbnail",      Icon: Layers,       desc: "YouTube & video thumbnails",      color: "from-yellow-500 to-orange-500",   category: "visual" },
+  // Copy
+  { id: "caption",       label: "Caption",        Icon: FileText,     desc: "AI social captions + emojis",     color: "from-pink-500 to-rose-600",       category: "copy" },
+  { id: "ad_copy",       label: "Ad Copy",        Icon: Megaphone,    desc: "Headline + body + CTA",           color: "from-amber-500 to-orange-600",    category: "copy" },
+  { id: "hashtag_set",   label: "Hashtag Set",    Icon: Hash,         desc: "30 trending hashtags per niche",  color: "from-emerald-500 to-teal-600",    category: "copy" },
+  { id: "blog_post",     label: "Blog Post",      Icon: Globe,        desc: "SEO-ready long-form article",     color: "from-sky-500 to-blue-600",        category: "copy" },
+  // Email & Messaging
+  { id: "email_template",label: "Email",          Icon: Mail,         desc: "Subject + full email body",       color: "from-blue-500 to-cyan-600",       category: "messaging" },
+  { id: "sms_template",  label: "SMS",            Icon: MessageSquare,desc: "160-char SMS with CTA",           color: "from-violet-500 to-indigo-600",   category: "messaging" },
+  { id: "whatsapp",      label: "WhatsApp",       Icon: MessageSquare,desc: "WhatsApp broadcast message",      color: "from-green-500 to-emerald-600",   category: "messaging" },
+  // Branding
+  { id: "brand_voice",   label: "Brand Voice",    Icon: Mic,          desc: "Tone & messaging guidelines",     color: "from-purple-500 to-violet-600",   category: "branding" },
+  { id: "brand_bio",     label: "Bio / About",    Icon: Star,         desc: "Platform bios & about sections",  color: "from-teal-500 to-cyan-600",       category: "branding" },
+  { id: "press_release", label: "Press Release",  Icon: Zap,          desc: "Professional PR announcement",    color: "from-slate-500 to-gray-600",      category: "branding" },
 ];
 
-const PLATFORMS = ["Instagram", "Facebook", "TikTok", "LinkedIn", "YouTube", "Twitter/X", "WhatsApp", "General"];
-const TONES = ["Professional", "Casual", "Exciting", "Urgent", "Friendly", "Luxury", "Humorous"];
+const CATEGORIES = [
+  { id: "all",      label: "All" },
+  { id: "visual",   label: "🎨 Visual" },
+  { id: "copy",     label: "✍️ Copy" },
+  { id: "messaging",label: "📨 Messaging" },
+  { id: "branding", label: "🏷️ Branding" },
+];
 
+const PLATFORMS = [
+  "Instagram", "Facebook", "TikTok", "LinkedIn", "YouTube",
+  "Twitter/X", "WhatsApp", "Pinterest", "Snapchat", "General"
+];
+const TONES = ["Professional", "Casual", "Exciting", "Urgent", "Friendly", "Luxury", "Humorous", "Inspirational"];
+const VIDEO_STYLES = ["Talking Head", "Slideshow", "Animation", "Product Demo", "Testimonial", "Tutorial", "Short-form Reel", "Documentary"];
+const VIDEO_DURATIONS = ["15 seconds", "30 seconds", "60 seconds", "2 minutes", "5 minutes", "10 minutes"];
+const IMAGE_DIMS = [
+  { label: "1080×1080 – Square (Feed)",        value: "1080x1080" },
+  { label: "1080×1920 – Story / Reel",         value: "1080x1920" },
+  { label: "1200×628 – Facebook Ad",            value: "1200x628" },
+  { label: "1280×720 – YouTube Thumbnail",      value: "1280x720" },
+  { label: "1200×1200 – LinkedIn",              value: "1200x1200" },
+  { label: "735×1102 – Pinterest",              value: "735x1102" },
+  { label: "1500×500 – Twitter/X Banner",       value: "1500x500" },
+  { label: "1920×1080 – Widescreen / OG Image", value: "1920x1080" },
+];
+
+// ── LLM prompt builders ─────────────────────────────────────────────────────
+function buildPrompt(type, form) {
+  const base = `Topic/Product: "${form.prompt}". Platform: ${form.platform}. Tone: ${form.tone}.`;
+  switch (type) {
+    case "caption":
+      return `Write an engaging social media caption. ${base} Include emojis, line breaks, and a clear hook in the first line. Max 220 chars.`;
+    case "ad_copy":
+      return `Write compelling ad copy. ${base}\nFormat exactly as:\nHEADLINE: ...\nBODY: ...\nCTA: ...\nHASHTAGS: ...`;
+    case "hashtag_set":
+      return `Generate 30 relevant and trending hashtags for ${form.platform} about: "${form.prompt}". Return as a flat list of space-separated #tags. Group by reach: broad, niche, branded.`;
+    case "email_template":
+      return `Write a full marketing email. ${base}\nFormat exactly as:\nSUBJECT: ...\nPREHEADER: ...\n\nBODY:\n...\n\nCTA BUTTON: ...`;
+    case "sms_template":
+      return `Write a concise SMS message (max 160 chars) with a punchy opener and CTA. ${base}`;
+    case "whatsapp":
+      return `Write a WhatsApp broadcast message. ${base} Use line breaks and a few relevant emojis. Max 300 chars. Include CTA and opt-out line.`;
+    case "blog_post":
+      return `Write a complete SEO-optimized blog post. ${base}\nInclude:\n- SEO Title\n- Meta Description (155 chars)\n- H1, H2, H3 headings\n- 600-900 word body\n- Internal link placeholders\n- Conclusion + CTA`;
+    case "video_script":
+      return `Write a full video script for a ${form.videoStyle || "short-form"} video (${form.videoDuration || "60 seconds"}). ${base}\nFormat as:\nHOOK (0-3s): ...\nINTRO (3-8s): ...\n[Scene-by-scene with timecodes]\nOUTRO + CTA: ...\nCAPTION OVERLAY TEXT: ...`;
+    case "video_storyboard":
+      return `Create a detailed storyboard for a ${form.videoDuration || "60 seconds"} ${form.videoStyle || "social media"} video. ${base}\nFor each shot provide:\nSHOT [N]: [angle]\nVISUAL: [what's on screen]\nAUDIO/VO: [voiceover or music note]\nTEXT OVERLAY: [on-screen text]\nDURATION: [seconds]\n\nInclude 6-10 shots.`;
+    case "thumbnail":
+      return `Design directions for a ${form.platform} video thumbnail. ${base}\nProvide:\nCONCEPT: ...\nBACKGROUND: ...\nTEXT OVERLAY: ...\nCOLOR PALETTE: ...\nEMOTION/EXPRESSION: ...\nFONT STYLE: ...`;
+    case "brand_voice":
+      return `Create a brand voice guide for: "${form.prompt}".\nInclude:\n- Brand Personality (3-5 adjectives)\n- Tone of Voice\n- Words We Use / Words We Avoid\n- Sample Taglines (5)\n- Sample Social Bio\n- Sample Caption\n- Competitor Differentiation`;
+    case "brand_bio":
+      return `Write platform bios for "${form.prompt}". Tone: ${form.tone}.\nProvide:\nINSTAGRAM BIO (150 chars): ...\nTWITTER/X BIO (160 chars): ...\nLINKEDIN SUMMARY (300 chars): ...\nTIKTOK BIO (80 chars): ...\nYOUTUBE ABOUT (500 chars): ...`;
+    case "press_release":
+      return `Write a professional press release. ${base}\nFormat as:\nFOR IMMEDIATE RELEASE\n\nHEADLINE: ...\nSUBHEADLINE: ...\nCITY, DATE — [opening paragraph - who, what, when, where, why]\n[Body: 3-4 paragraphs]\nQUOTE: "..." — [Name, Title]\nABOUT [COMPANY]: ...\nCONTACT: ...`;
+    default:
+      return `Generate ${type} content. ${base}`;
+  }
+}
+
+// ── Main Component ──────────────────────────────────────────────────────────
 export default function MediaStudio() {
   const { user } = useOutletContext() || {};
   const qc = useQueryClient();
-  const [activeType, setActiveType] = useState("caption");
-  const [form, setForm] = useState({ prompt: "", platform: "Instagram", tone: "Professional", dimensions: "1080x1080" });
+
+  const [activeType, setActiveType] = useState("image");
+  const [activeCat, setActiveCat] = useState("all");
+  const [form, setForm] = useState({
+    prompt: "", platform: "Instagram", tone: "Professional",
+    dimensions: "1080x1080", videoStyle: "Short-form Reel", videoDuration: "60 seconds"
+  });
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
+
+  const activeTypeObj = TYPES.find(t => t.id === activeType);
+  const isVisual = activeType === "image" || activeType === "thumbnail";
+  const isVideoType = activeType === "video_script" || activeType === "video_storyboard";
+  const isLongForm = ["blog_post", "brand_voice", "press_release", "brand_bio"].includes(activeType);
+
+  const filteredTypes = activeCat === "all" ? TYPES : TYPES.filter(t => t.category === activeCat);
 
   const generate = async () => {
-    if (!form.prompt) { alert("Enter a prompt or topic"); return; }
+    if (!form.prompt.trim()) { alert("Please enter a topic or prompt"); return; }
     setLoading(true);
     setResult(null);
+
     try {
-      const res = await base44.functions.invoke("generateMediaContent", {
-        type: activeType, platform: form.platform, tone: form.tone,
-        prompt: form.prompt, dimensions: form.dimensions,
-      });
-      setResult(res?.data || res);
-    } catch (e) {
-      // Fallback: use AI chat for text types
-      if (activeType !== "image") {
-        const systemMap = {
-          caption: `Generate a ${form.tone.toLowerCase()} social media caption for ${form.platform} about: ${form.prompt}. Include line breaks and emojis. Max 200 chars.`,
-          ad_copy: `Write an ad for ${form.platform} about: ${form.prompt}. Format as:\nHeadline: ...\nBody: ...\nCTA: ...`,
-          hashtag_set: `Generate 15 trending hashtags for ${form.platform} about: ${form.prompt}. Return as space-separated #tags.`,
-          email_template: `Write a marketing email about: ${form.prompt}. Format as:\nSubject: ...\n\nBody:\n...`,
-          sms_template: `Write a short SMS (max 160 chars) about: ${form.prompt} with a clear CTA.`,
-        };
-        setResult({ text: systemMap[activeType] || "Generated content will appear here." });
+      if (isVisual) {
+        // ── Real Image Generation ──────────────────────────────────────────
+        const styleHint = activeType === "thumbnail"
+          ? `YouTube thumbnail style, bold text overlay, high contrast, eye-catching`
+          : `Professional marketing ${form.platform} image`;
+
+        const enhancedPrompt = `${form.prompt}. ${styleHint}. ${form.tone} tone. Optimized for ${form.platform}. High quality, crisp, commercial photography style.`;
+
+        const res = await base44.functions.invoke("generateImage", {
+          prompt: enhancedPrompt,
+          platform: form.platform,
+          dimensions: form.dimensions,
+        });
+        setResult({ type: "image", url: res?.file_url || res?.url || res?.data?.url || res?.data?.file_url });
       } else {
-        alert("Image generation error: " + e.message);
+        // ── Text / Copy Generation ─────────────────────────────────────────
+        const llmPrompt = buildPrompt(activeType, form);
+        const res = await base44.functions.invoke("generateMediaContent", {
+          type: activeType,
+          platform: form.platform,
+          tone: form.tone,
+          prompt: llmPrompt,
+        });
+        const text = res?.content || res?.data?.content || res?.text || res?.data?.text || res;
+        setResult({ type: "text", text: typeof text === "string" ? text : JSON.stringify(text, null, 2) });
+      }
+    } catch (err) {
+      if (!isVisual) {
+        // Graceful fallback: use built-in prompt display
+        setResult({ type: "text", text: buildPrompt(activeType, form) + "\n\n[Backend error: " + err.message + "]" });
+      } else {
+        alert("Generation error: " + err.message);
       }
     }
     setLoading(false);
   };
 
   const copy = async () => {
-    const text = result?.text || result?.content || "";
+    const text = result?.text || "";
     await navigator.clipboard.writeText(text);
-    setCopied(true); setTimeout(() => setCopied(false), 2000);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   const save = async () => {
-    const content = result?.text || result?.content || result?.url || "";
+    const content = result?.text || result?.url || "";
     await base44.entities.ContentAsset.create({
-      type: activeType, title: form.prompt.slice(0, 60), content,
-      file_url: result?.url || null, platform: form.platform, ai_generated: true, prompt_used: form.prompt,
+      type: activeType,
+      title: form.prompt.slice(0, 60),
+      content,
+      file_url: result?.url || null,
+      platform: form.platform,
+      ai_generated: true,
+      prompt_used: form.prompt,
+      status: "ready",
     });
     qc.invalidateQueries(["media_library"]);
-    setSaved(true); setTimeout(() => setSaved(false), 2000);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
   };
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6">
+    <div className="max-w-6xl mx-auto space-y-6">
+
+      {/* Header */}
       <div>
-        <h1 className="text-2xl font-black text-foreground flex items-center gap-2"><Sparkles className="w-6 h-6 text-fuchsia-400" /> Media Studio</h1>
-        <p className="text-muted-foreground text-sm mt-0.5">Generate AI images, captions, ad copy, hashtags and email templates</p>
+        <h1 className="text-2xl font-black text-foreground flex items-center gap-2">
+          <Sparkles className="w-6 h-6 text-fuchsia-400" /> Media Studio
+        </h1>
+        <p className="text-muted-foreground text-sm mt-0.5">
+          Complete AI creative suite — images, videos, copy, email, branding & more
+        </p>
       </div>
 
-      {/* Type selector */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-        {TYPES.map(t => (
-          <button key={t.id} onClick={() => { setActiveType(t.id); setResult(null); }}
-            className={`p-3 rounded-2xl border text-left transition-all ${activeType === t.id ? "border-fuchsia-500/50 bg-fuchsia-500/8 shadow-lg shadow-fuchsia-500/10" : "border-border bg-card hover:border-border/80"}`}>
-            <div className={`w-8 h-8 rounded-xl bg-gradient-to-br ${t.color} flex items-center justify-center mb-2`}>
-              <t.Icon className="w-4 h-4 text-white" />
-            </div>
-            <p className="text-xs font-bold text-foreground">{t.label}</p>
-            <p className="text-[10px] text-muted-foreground mt-0.5">{t.desc}</p>
+      {/* Category filter tabs */}
+      <div className="flex items-center gap-2 flex-wrap">
+        {CATEGORIES.map(c => (
+          <button key={c.id} onClick={() => setActiveCat(c.id)}
+            className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all border ${
+              activeCat === c.id
+                ? "bg-fuchsia-500 text-white border-fuchsia-500 shadow-lg shadow-fuchsia-500/20"
+                : "bg-card border-border text-muted-foreground hover:text-foreground"
+            }`}>
+            {c.label}
           </button>
         ))}
       </div>
 
+      {/* Type grid */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-7 gap-2.5">
+        {filteredTypes.map(t => (
+          <button key={t.id} onClick={() => { setActiveType(t.id); setResult(null); }}
+            className={`p-3 rounded-2xl border text-left transition-all ${
+              activeType === t.id
+                ? "border-fuchsia-500/50 bg-fuchsia-500/8 shadow-lg shadow-fuchsia-500/10 scale-[1.02]"
+                : "border-border bg-card hover:border-fuchsia-500/20 hover:scale-[1.01]"
+            }`}>
+            <div className={`w-8 h-8 rounded-xl bg-gradient-to-br ${t.color} flex items-center justify-center mb-2 shadow-sm`}>
+              <t.Icon className="w-4 h-4 text-white" />
+            </div>
+            <p className="text-xs font-bold text-foreground leading-tight">{t.label}</p>
+            <p className="text-[10px] text-muted-foreground mt-0.5 leading-tight">{t.desc}</p>
+          </button>
+        ))}
+      </div>
+
+      {/* Active type banner */}
+      {activeTypeObj && (
+        <div className={`flex items-center gap-3 px-4 py-2.5 rounded-xl bg-gradient-to-r ${activeTypeObj.color} bg-opacity-10 border border-white/10`}>
+          <activeTypeObj.Icon className="w-4 h-4 text-white" />
+          <span className="text-sm font-semibold text-white">{activeTypeObj.label}</span>
+          <span className="text-xs text-white/60">— {activeTypeObj.desc}</span>
+        </div>
+      )}
+
+      {/* Configure + Output */}
       <div className="grid md:grid-cols-2 gap-6">
+
         {/* Input panel */}
         <div className="bg-card border border-border rounded-2xl p-5 space-y-4">
           <h3 className="font-semibold text-foreground">Configure</h3>
+
+          {/* Prompt */}
           <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground">Topic / Prompt *</label>
-            <textarea value={form.prompt} onChange={e => setForm(p => ({ ...p, prompt: e.target.value }))} rows={3}
-              placeholder={activeType === "image" ? "A professional photo of a luxury hotel lobby at golden hour…" : "Describe your product, service, or topic…"}
-              className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none" />
+            <label className="text-xs font-medium text-muted-foreground">
+              Topic / Prompt *
+            </label>
+            <textarea
+              value={form.prompt}
+              onChange={e => setForm(p => ({ ...p, prompt: e.target.value }))}
+              rows={isLongForm ? 5 : 3}
+              placeholder={
+                isVisual
+                  ? "A professional product photo of a luxury skincare bottle on marble, soft lighting…"
+                  : isVideoType
+                  ? "30-second reel showcasing our new AI marketing tool for small businesses…"
+                  : "Describe your product, brand, or content topic…"
+              }
+              className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none"
+            />
           </div>
+
+          {/* Platform + Tone */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-muted-foreground">Platform</label>
-              <select value={form.platform} onChange={e => setForm(p => ({ ...p, platform: e.target.value }))} className="w-full h-9 px-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+              <select
+                value={form.platform}
+                onChange={e => setForm(p => ({ ...p, platform: e.target.value }))}
+                className="w-full h-9 px-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring">
                 {PLATFORMS.map(pl => <option key={pl}>{pl}</option>)}
               </select>
             </div>
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-muted-foreground">Tone</label>
-              <select value={form.tone} onChange={e => setForm(p => ({ ...p, tone: e.target.value }))} className="w-full h-9 px-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+              <select
+                value={form.tone}
+                onChange={e => setForm(p => ({ ...p, tone: e.target.value }))}
+                className="w-full h-9 px-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring">
                 {TONES.map(t => <option key={t}>{t}</option>)}
               </select>
             </div>
           </div>
-          {activeType === "image" && (
+
+          {/* Image dimensions */}
+          {isVisual && (
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-muted-foreground">Dimensions</label>
-              <select value={form.dimensions} onChange={e => setForm(p => ({ ...p, dimensions: e.target.value }))} className="w-full h-9 px-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring">
-                <option value="1080x1080">1080×1080 (Square)</option>
-                <option value="1080x1920">1080×1920 (Story/Reel)</option>
-                <option value="1200x628">1200×628 (Facebook Ad)</option>
-                <option value="1280x720">1280×720 (YouTube Thumb)</option>
-                <option value="1200x1200">1200×1200 (LinkedIn)</option>
+              <select
+                value={form.dimensions}
+                onChange={e => setForm(p => ({ ...p, dimensions: e.target.value }))}
+                className="w-full h-9 px-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+                {IMAGE_DIMS.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
               </select>
             </div>
           )}
-          <button onClick={generate} disabled={loading || !form.prompt}
-            className="w-full py-3 rounded-xl bg-gradient-to-r from-fuchsia-500 to-purple-600 text-white font-semibold text-sm hover:opacity-90 disabled:opacity-60 flex items-center justify-center gap-2 shadow-lg shadow-fuchsia-500/20">
-            {loading ? <><Loader2 className="w-4 h-4 animate-spin" /> Generating…</> : <><Wand2 className="w-4 h-4" /> Generate</>}
+
+          {/* Video options */}
+          {isVideoType && (
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Video Style</label>
+                <select
+                  value={form.videoStyle}
+                  onChange={e => setForm(p => ({ ...p, videoStyle: e.target.value }))}
+                  className="w-full h-9 px-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+                  {VIDEO_STYLES.map(s => <option key={s}>{s}</option>)}
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Duration</label>
+                <select
+                  value={form.videoDuration}
+                  onChange={e => setForm(p => ({ ...p, videoDuration: e.target.value }))}
+                  className="w-full h-9 px-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+                  {VIDEO_DURATIONS.map(d => <option key={d}>{d}</option>)}
+                </select>
+              </div>
+            </div>
+          )}
+
+          {/* Generate button */}
+          <button
+            onClick={generate}
+            disabled={loading || !form.prompt.trim()}
+            className="w-full py-3 rounded-xl bg-gradient-to-r from-fuchsia-500 to-purple-600 text-white font-semibold text-sm hover:opacity-90 disabled:opacity-60 flex items-center justify-center gap-2 shadow-lg shadow-fuchsia-500/20 transition-all">
+            {loading
+              ? <><Loader2 className="w-4 h-4 animate-spin" /> Generating…</>
+              : <><Wand2 className="w-4 h-4" /> Generate {activeTypeObj?.label}</>
+            }
           </button>
+
+          {/* Tips */}
+          <div className="bg-muted/30 rounded-xl px-3 py-2.5 space-y-1">
+            <button
+              onClick={() => setShowAdvanced(v => !v)}
+              className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors w-full">
+              {showAdvanced ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+              Pro Tips for better results
+            </button>
+            {showAdvanced && (
+              <ul className="text-[11px] text-muted-foreground space-y-1 mt-1.5">
+                {isVisual && <>
+                  <li>• Be specific: "golden hour", "flat lay", "cinematic", "white background"</li>
+                  <li>• Add brand colors: "brand colors: #FF6B6B and #4ECDC4"</li>
+                  <li>• Mention emotion: "aspirational", "warm", "minimalist"</li>
+                </>}
+                {isVideoType && <>
+                  <li>• Mention your target viewer in the prompt</li>
+                  <li>• Include the key message / transformation</li>
+                  <li>• Specify if talking-head, voiceover-only, or B-roll</li>
+                </>}
+                {!isVisual && !isVideoType && <>
+                  <li>• Include product name, benefit, and target audience</li>
+                  <li>• Mention any promo, offer, or urgency if relevant</li>
+                  <li>• Add industry/niche for better-targeted hashtags</li>
+                </>}
+              </ul>
+            )}
+          </div>
         </div>
 
         {/* Output panel */}
-        <div className="bg-card border border-border rounded-2xl p-5">
+        <div className="bg-card border border-border rounded-2xl p-5 flex flex-col">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-semibold text-foreground">Output</h3>
             {result && (
               <div className="flex items-center gap-2">
-                <button onClick={generate} className="p-1.5 rounded-lg bg-muted text-muted-foreground hover:text-foreground transition-colors" title="Regenerate">
+                <button
+                  onClick={generate}
+                  className="p-1.5 rounded-lg bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                  title="Regenerate">
                   <RefreshCw className="w-3.5 h-3.5" />
                 </button>
-                {activeType !== "image" && (
-                  <button onClick={copy} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${copied ? "bg-emerald-500/10 text-emerald-400" : "bg-muted text-muted-foreground hover:text-foreground"}`}>
+                {result.type === "text" && (
+                  <button
+                    onClick={copy}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                      copied ? "bg-emerald-500/10 text-emerald-400" : "bg-muted text-muted-foreground hover:text-foreground"
+                    }`}>
                     {copied ? <><CheckCircle2 className="w-3.5 h-3.5" /> Copied!</> : <><Copy className="w-3.5 h-3.5" /> Copy</>}
                   </button>
                 )}
-                <button onClick={save} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${saved ? "bg-emerald-500/10 text-emerald-400" : "bg-fuchsia-500/10 text-fuchsia-400 hover:bg-fuchsia-500/20"}`}>
+                <button
+                  onClick={save}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                    saved ? "bg-emerald-500/10 text-emerald-400" : "bg-fuchsia-500/10 text-fuchsia-400 hover:bg-fuchsia-500/20"
+                  }`}>
                   {saved ? <><CheckCircle2 className="w-3.5 h-3.5" /> Saved!</> : "Save to Library"}
                 </button>
               </div>
             )}
           </div>
 
+          {/* Empty state */}
           {!result && !loading && (
-            <div className="flex flex-col items-center justify-center h-48 text-center">
-              <Sparkles className="w-10 h-10 text-muted-foreground/20 mb-3" />
-              <p className="text-muted-foreground text-sm">Configure and generate to see output</p>
+            <div className="flex flex-col items-center justify-center flex-1 min-h-52 text-center">
+              <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${activeTypeObj?.color || "from-fuchsia-500 to-purple-600"} flex items-center justify-center mb-3 opacity-30`}>
+                {activeTypeObj && <activeTypeObj.Icon className="w-7 h-7 text-white" />}
+              </div>
+              <p className="text-muted-foreground text-sm">Configure your {activeTypeObj?.label?.toLowerCase()} and hit Generate</p>
+              <p className="text-muted-foreground/50 text-xs mt-1">Output will appear here</p>
             </div>
           )}
+
+          {/* Loading */}
           {loading && (
-            <div className="flex flex-col items-center justify-center h-48">
-              <Loader2 className="w-8 h-8 animate-spin text-fuchsia-400 mb-3" />
-              <p className="text-muted-foreground text-sm">Generating with AI…</p>
+            <div className="flex flex-col items-center justify-center flex-1 min-h-52">
+              <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${activeTypeObj?.color || "from-fuchsia-500 to-purple-600"} flex items-center justify-center mb-3 animate-pulse`}>
+                {activeTypeObj && <activeTypeObj.Icon className="w-6 h-6 text-white" />}
+              </div>
+              <Loader2 className="w-5 h-5 animate-spin text-fuchsia-400 mb-2" />
+              <p className="text-muted-foreground text-sm">
+                {isVisual ? "Generating image with AI…" : "Writing with AI…"}
+              </p>
+              <p className="text-muted-foreground/40 text-xs mt-1">This takes 5–15 seconds</p>
             </div>
           )}
+
+          {/* Result */}
           {result && !loading && (
-            <div className="h-full">
-              {result.url ? (
-                <div className="space-y-3">
-                  <img src={result.url} alt="Generated" className="w-full rounded-xl object-cover" />
-                  <a href={result.url} download className="flex items-center justify-center gap-2 py-2.5 rounded-xl border border-border text-sm font-medium hover:border-fuchsia-500/40 transition-colors">
-                    <Download className="w-4 h-4" /> Download Image
-                  </a>
+            <div className="flex-1 flex flex-col gap-3">
+              {result.type === "image" && result.url ? (
+                <>
+                  <img
+                    src={result.url}
+                    alt="AI Generated"
+                    className="w-full rounded-xl object-cover shadow-lg"
+                  />
+                  <div className="flex gap-2">
+                    <a
+                      href={result.url}
+                      download
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl border border-border text-sm font-medium hover:border-fuchsia-500/40 transition-colors">
+                      <Download className="w-4 h-4" /> Download
+                    </a>
+                    <button
+                      onClick={generate}
+                      className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-fuchsia-500/10 text-fuchsia-400 text-sm font-medium hover:bg-fuchsia-500/20 transition-colors">
+                      <RefreshCw className="w-4 h-4" /> Regenerate
+                    </button>
+                  </div>
+                </>
+              ) : result.type === "image" && !result.url ? (
+                <div className="flex flex-col items-center justify-center flex-1 min-h-52 text-center bg-red-500/5 rounded-xl border border-red-500/20">
+                  <p className="text-red-400 text-sm font-medium">Image generation failed</p>
+                  <p className="text-muted-foreground text-xs mt-1">Try again or check your plan limits</p>
+                  <button onClick={generate} className="mt-3 px-4 py-2 rounded-lg bg-fuchsia-500/10 text-fuchsia-400 text-xs font-medium hover:bg-fuchsia-500/20 transition-colors">
+                    Try Again
+                  </button>
                 </div>
               ) : (
-                <div className="bg-muted/30 rounded-xl p-4 min-h-48 max-h-80 overflow-y-auto">
-                  <pre className="text-sm text-foreground whitespace-pre-wrap font-sans leading-relaxed">{result.text || result.content || JSON.stringify(result, null, 2)}</pre>
+                <div className="bg-muted/30 rounded-xl p-4 flex-1 overflow-y-auto max-h-[500px]">
+                  <pre className="text-sm text-foreground whitespace-pre-wrap font-sans leading-relaxed">
+                    {result.text}
+                  </pre>
                 </div>
               )}
             </div>
           )}
         </div>
+      </div>
+
+      {/* Video Creation Notice */}
+      {isVideoType && (
+        <div className="bg-gradient-to-r from-rose-500/10 to-pink-500/10 border border-rose-500/20 rounded-2xl p-4 flex gap-3 items-start">
+          <Play className="w-5 h-5 text-rose-400 mt-0.5 shrink-0" />
+          <div>
+            <p className="text-sm font-semibold text-foreground">AI Video Script & Storyboard</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Generate production-ready scripts and shot-by-shot storyboards. Take them to Runway ML, Pika, Kling, or any AI video tool to render the actual video. Save to Media Library for your video team.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Quick-action row */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {[
+          { label: "Generate Image Set", sub: "4 platform variants", icon: Image, types: ["image"], onClick: () => { setActiveType("image"); setActiveCat("visual"); } },
+          { label: "Full Video Package", sub: "Script + Storyboard", icon: Film, onClick: () => { setActiveType("video_script"); setActiveCat("visual"); } },
+          { label: "Content Bundle", sub: "Caption + Hashtags + Copy", icon: Layers, onClick: () => { setActiveType("caption"); setActiveCat("copy"); } },
+          { label: "Brand Kit", sub: "Voice + Bios + PR", icon: Star, onClick: () => { setActiveType("brand_voice"); setActiveCat("branding"); } },
+        ].map(item => (
+          <button
+            key={item.label}
+            onClick={item.onClick}
+            className="p-3.5 rounded-2xl border border-border bg-card hover:border-fuchsia-500/30 hover:bg-fuchsia-500/5 transition-all text-left group">
+            <item.icon className="w-5 h-5 text-fuchsia-400 mb-2 group-hover:scale-110 transition-transform" />
+            <p className="text-sm font-semibold text-foreground">{item.label}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">{item.sub}</p>
+          </button>
+        ))}
       </div>
     </div>
   );
