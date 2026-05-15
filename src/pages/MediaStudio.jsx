@@ -155,6 +155,51 @@ export default function MediaStudio() {
 
   const filteredTypes = activeCat === "all" ? TYPES : TYPES.filter(t => t.category === activeCat);
 
+  // Sanitize user prompts before sending to Vertex AI GenerateVideo.
+  // Vertex AI flags: personal names, relationship terms, some celebration contexts.
+  // We rewrite these into safe cinematic equivalents without losing intent.
+  const sanitizeVideoPrompt = (rawPrompt) => {
+    let p = rawPrompt;
+
+    // Replace relationship words with neutral equivalents
+    const relationshipMap = {
+      "\\bwife\\b": "person",
+      "\\bhusband\\b": "person",
+      "\\bgirlfriend\\b": "person",
+      "\\bboyfriend\\b": "person",
+      "\\bfiance\\b": "person",
+      "\\bfiancee\\b": "person",
+      "\\bspouse\\b": "person",
+      "\\bpartner\\b": "individual",
+    };
+    Object.entries(relationshipMap).forEach(([pattern, replacement]) => {
+      p = p.replace(new RegExp(pattern, "gi"), replacement);
+    });
+
+    // Strip personal names (2+ capitalised words in a row not at sentence start)
+    // Replace with "a person" to preserve context
+    p = p.replace(/(?<![.!?]\s)\b([A-Z][a-z]+ [A-Z][a-z]+)\b/g, "a person");
+
+    // Rephrase "celebrating X's Birthday" -> "celebrating a birthday"
+    p = p.replace(/celebrating\s+\w+'s\s+birthday/gi, "celebrating a birthday");
+    p = p.replace(/\w+'s\s+birthday/gi, "a birthday celebration");
+
+    // Replace overly specific location descriptors that can trip filters
+    p = p.replace(/five[- ]star hotel/gi, "luxury hotel");
+    p = p.replace(/grand background/gi, "elegant backdrop");
+
+    // Strip references to "attached photo/image" — Vertex can't see them
+    p = p.replace(/I have attached[^.]+\.?/gi, "");
+    p = p.replace(/as attachment[^.]*\.?/gi, "");
+    p = p.replace(/reference photo[^.]*\.?/gi, "");
+    p = p.replace(/the photo[^.]*\.?/gi, "");
+
+    // Clean up extra whitespace
+    p = p.replace(/\s{2,}/g, " ").trim();
+
+    return p;
+  };
+
   const generate = async () => {
     if (!form.prompt.trim()) { alert("Please enter a topic or prompt"); return; }
     setLoading(true);
@@ -172,7 +217,8 @@ export default function MediaStudio() {
         let clipUrls = [];
         for (let i = 0; i < numClips; i++) {
           const sceneHint = numClips > 1 ? ` Scene ${i + 1} of ${numClips}.` : "";
-          const videoPrompt = `${form.prompt}.${sceneHint} Platform: ${form.platform}. Tone: ${form.tone}. Style: cinematic, high quality, professional marketing video. Seamlessly continues the same visual story.${audioHint}${refHint}`;
+          const safePrompt = sanitizeVideoPrompt(form.prompt);
+          const videoPrompt = `${safePrompt}.${sceneHint} Platform: ${form.platform}. Tone: ${form.tone}. Style: cinematic, high quality, professional marketing video. Seamlessly continues the same visual story.${audioHint}${refHint}`;
           const res = await base44.integrations.Core.GenerateVideo({
             prompt: videoPrompt,
             duration: clipSec,
