@@ -15,7 +15,7 @@ export default function BetaSignup() {
     setError("");
     try {
       // Use the public backend function — no auth required
-      await base44.functions.submitBetaRequest({ ...form });
+      await base44.functions.invoke("submitBetaRequest", { ...form });
       setDone(true);
     } catch (err) {
       setError("Something went wrong. Please try again.");
