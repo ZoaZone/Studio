@@ -9,17 +9,17 @@ export default function AdminDashboard() {
   const [tab,setTab]=useState("overview");
   const [search,setSearch]=useState("");
 
-  if(user?.role!=="admin") return(
-    <div className="flex items-center justify-center min-h-[60vh]">
-      <div className="text-center"><ShieldCheck className="w-12 h-12 text-muted-foreground/20 mx-auto mb-3"/><p className="text-lg font-semibold text-foreground">Admin Access Required</p></div>
-    </div>
-  );
-
   const {data:subs=[]}=useQuery({queryKey:["admin_subs"],queryFn:()=>base44.entities.Subscription.filter({},"-created_date",200)});
   const {data:campaigns=[]}=useQuery({queryKey:["admin_campaigns"],queryFn:()=>base44.entities.MarketingCampaign.filter({},"-created_date",200)});
   const {data:leads=[]}=useQuery({queryKey:["admin_leads"],queryFn:()=>base44.entities.LeadCapture.filter({},"-captured_at",500)});
   const {data:contacts=[]}=useQuery({queryKey:["admin_contacts"],queryFn:()=>base44.entities.MarketingContact.filter({},"-created_date",500)});
   const {data:assets=[]}=useQuery({queryKey:["admin_assets"],queryFn:()=>base44.entities.ContentAsset.filter({},"-created_date",200)});
+
+  if(user?.role!=="admin") return(
+    <div className="flex items-center justify-center min-h-[60vh]">
+      <div className="text-center"><ShieldCheck className="w-12 h-12 text-muted-foreground/20 mx-auto mb-3"/><p className="text-lg font-semibold text-foreground">Admin Access Required</p></div>
+    </div>
+  );
 
   const PRICES={Starter:49,Growth:149,Agency:399};
   const activeSubs=subs.filter(s=>s.status==="active");

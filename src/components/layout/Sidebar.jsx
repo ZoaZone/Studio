@@ -181,5 +181,3 @@ export default function Sidebar({ userTier = 0, isAdmin = false }) {
     </>
   );
 }
-
----CHANGED--- True
