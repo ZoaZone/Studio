@@ -75,6 +75,7 @@ const AuthenticatedApp = () => {
       <Route path="/lead-capture" element={<LeadCapturePage />} />
       <Route path="/beta" element={<BetaSignup />} />
       <Route path="/invite/:token" element={<BetaOnboarding />} />
+      <Route path="/invite" element={<BetaOnboarding />} />
 
       <Route element={<AppLayout />}>
         <Route path="/dashboard" element={<Dashboard />} />
