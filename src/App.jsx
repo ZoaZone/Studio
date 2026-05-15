@@ -35,6 +35,7 @@ import HelpCenter from './pages/HelpCenter';
 import AffiliatePortal from './pages/AffiliatePortal';
 import AgencyPortal from './pages/AgencyPortal';
 import BetaSignup from './pages/BetaSignup';
+import BetaOnboarding from './pages/BetaOnboarding';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -73,6 +74,7 @@ const AuthenticatedApp = () => {
       <Route path="/onboarding" element={<PostPaymentOnboarding />} />
       <Route path="/lead-capture" element={<LeadCapturePage />} />
       <Route path="/beta" element={<BetaSignup />} />
+      <Route path="/invite/:token" element={<BetaOnboarding />} />
 
       <Route element={<AppLayout />}>
         <Route path="/dashboard" element={<Dashboard />} />
