@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
-import { ShieldCheck, Users, Megaphone, BarChart3, DollarSign, Loader2, Search, Gift, Send, CheckCircle2, X, Plus } from "lucide-react";
+import { ShieldCheck, Users, Megaphone, BarChart3, DollarSign, Loader2, Search, Gift, Send, CheckCircle2, X, Plus, Link, Copy, UserCheck, Clock, UserX } from "lucide-react";
 
 export default function AdminDashboard() {
   const {user}=useOutletContext()||{};
@@ -15,8 +15,10 @@ export default function AdminDashboard() {
   const [inviteNote,setInviteNote]=useState("");
   const [inviting,setInviting]=useState(false);
   const [inviteResults,setInviteResults]=useState([]);
+  const [linkCopied,setLinkCopied]=useState(false);
 
   const {data:subs=[]}=useQuery({queryKey:["admin_subs"],queryFn:()=>base44.entities.Subscription.filter({},"-created_date",200)});
+  const {data:betaRequests=[],refetch:refetchBeta}=useQuery({queryKey:["beta_requests"],queryFn:()=>base44.entities.BetaRequest.filter({},"-created_date",200)});
   const {data:campaigns=[]}=useQuery({queryKey:["admin_campaigns"],queryFn:()=>base44.entities.MarketingCampaign.filter({},"-created_date",200)});
   const {data:leads=[]}=useQuery({queryKey:["admin_leads"],queryFn:()=>base44.entities.LeadCapture.filter({},"-captured_at",500)});
   const {data:contacts=[]}=useQuery({queryKey:["admin_contacts"],queryFn:()=>base44.entities.MarketingContact.filter({},"-created_date",500)});
@@ -36,6 +38,14 @@ export default function AdminDashboard() {
 
   const filteredSubs=subs.filter(s=>!search||(s.owner_email||"").toLowerCase().includes(search.toLowerCase()));
 
+  const betaInviteLink = `${window.location.origin}/beta`;
+
+  const copyLink = () => {
+    navigator.clipboard.writeText(betaInviteLink);
+    setLinkCopied(true);
+    setTimeout(()=>setLinkCopied(false),2000);
+  };
+
   const sendBetaInvites = async () => {
     const emails = inviteEmails.split(/[\n,;]+/).map(e=>e.trim()).filter(Boolean);
     if(!emails.length) return;
@@ -44,9 +54,7 @@ export default function AdminDashboard() {
     const results=[];
     for(const email of emails){
       try{
-        // Invite user to the app
-        await base44.users.inviteUser(email,"user");
-        // Create a free "Agency" (full-access) beta subscription record
+        // Create subscription record
         await base44.entities.Subscription.create({
           owner_email: email,
           plan_name: "Beta Pro",
@@ -54,11 +62,11 @@ export default function AdminDashboard() {
           status: "active",
           current_period_end: new Date(Date.now()+365*24*60*60*1000).toISOString(),
         });
-        // Send welcome email
+        // Send welcome email with login link (user registers themselves)
         await base44.integrations.Core.SendEmail({
           to: email,
           subject: "🎉 You're in — Free Beta Access to MARKETER",
-          body: `Hi there!\n\nYou've been personally invited by our team to access MARKETER as a free beta user — with full Agency-tier features unlocked at no cost.\n\n${inviteNote ? `Personal note from our team:\n"${inviteNote}"\n\n` : ""}Get started here: ${window.location.origin}\n\nThis is our way of saying thank you for being an early supporter. Your feedback means everything to us.\n\n— The MARKETER Team`,
+          body: `Hi there!\n\nYou've been personally invited by our team to access MARKETER as a free beta user — with full Agency-tier features unlocked at no cost.\n\n${inviteNote ? `Personal note from our team:\n"${inviteNote}"\n\n` : ""}👉 Sign up & get started here: ${window.location.origin}\n\nJust create a free account using this email address and your Beta Pro access will be waiting.\n\nThis is our way of saying thank you for being an early supporter. Your feedback means everything to us.\n\n— The MARKETER Team`,
         });
         results.push({email,status:"success"});
       } catch(err){
@@ -68,6 +76,34 @@ export default function AdminDashboard() {
     setInviteResults(results);
     setInviting(false);
     qc.invalidateQueries(["admin_subs"]);
+  };
+
+  const approveBetaRequest = async (req) => {
+    try {
+      // Create subscription
+      await base44.entities.Subscription.create({
+        owner_email: req.email,
+        plan_name: "Beta Pro",
+        plan_tier: "agency",
+        status: "active",
+        current_period_end: new Date(Date.now()+365*24*60*60*1000).toISOString(),
+      });
+      // Send approval email
+      await base44.integrations.Core.SendEmail({
+        to: req.email,
+        subject: "🎉 Your Beta Access is Approved — Welcome to MARKETER!",
+        body: `Hi ${req.full_name}!\n\nGreat news — your beta access request has been approved! 🚀\n\nYou now have full Agency-tier access to MARKETER, completely free.\n\n👉 Sign up here: ${window.location.origin}\n\nJust create an account using this email and your full access will be ready.\n\nWelcome aboard!\n\n— The MARKETER Team`,
+      });
+      // Mark as approved
+      await base44.entities.BetaRequest.update(req.id, { status: "approved" });
+      refetchBeta();
+      qc.invalidateQueries(["admin_subs"]);
+    } catch(err) { alert("Error: "+err.message); }
+  };
+
+  const rejectBetaRequest = async (req) => {
+    await base44.entities.BetaRequest.update(req.id, { status: "rejected" });
+    refetchBeta();
   };
 
   const Stat=({Icon,label,value,color="text-fuchsia-400 bg-fuchsia-500/10"})=>(
@@ -149,9 +185,53 @@ export default function AdminDashboard() {
             <Gift className="w-5 h-5 text-fuchsia-400 mt-0.5 shrink-0"/>
             <div>
               <p className="text-sm font-bold text-foreground">Free Beta Invites — Full Agency Access</p>
-              <p className="text-xs text-muted-foreground mt-1">Invite users by email. They'll get a free app login invite + an Agency-tier subscription activated automatically + a welcome email from your platform.</p>
+              <p className="text-xs text-muted-foreground mt-1">Share the invite link or manually email users. Approved users get a welcome email with a sign-up link and Agency-tier access waiting for them.</p>
             </div>
           </div>
+
+          {/* Shareable invite link */}
+          <div className="bg-card border border-border rounded-2xl p-5 space-y-2">
+            <p className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5"><Link className="w-3.5 h-3.5"/>Shareable Beta Signup Link</p>
+            <p className="text-[11px] text-muted-foreground">Share this link on social media, WhatsApp, email, etc. Interested users fill a form and you approve them from the Pending Requests section below.</p>
+            <div className="flex items-center gap-2">
+              <div className="flex-1 h-9 px-3 rounded-md border border-input bg-background text-sm text-muted-foreground flex items-center truncate font-mono text-xs">
+                {betaInviteLink}
+              </div>
+              <button onClick={copyLink} className={`flex items-center gap-1.5 px-3 h-9 rounded-md text-xs font-semibold transition-all border ${linkCopied?"bg-emerald-500/10 text-emerald-400 border-emerald-500/20":"bg-fuchsia-500/10 text-fuchsia-400 border-fuchsia-500/20 hover:bg-fuchsia-500/20"}`}>
+                {linkCopied?<><CheckCircle2 className="w-3.5 h-3.5"/>Copied!</>:<><Copy className="w-3.5 h-3.5"/>Copy Link</>}
+              </button>
+            </div>
+          </div>
+
+          {/* Pending beta requests */}
+          {betaRequests.length>0&&(
+            <div className="bg-card border border-border rounded-2xl overflow-hidden">
+              <div className="px-4 py-3 border-b border-border flex items-center justify-between">
+                <p className="text-xs font-semibold text-foreground flex items-center gap-1.5"><Clock className="w-3.5 h-3.5 text-amber-400"/>Beta Requests</p>
+                <span className="text-xs bg-amber-500/10 text-amber-400 px-2 py-0.5 rounded-full">{betaRequests.filter(r=>r.status==="pending").length} pending</span>
+              </div>
+              {betaRequests.map(r=>(
+                <div key={r.id} className="flex items-center gap-3 px-4 py-3 border-b border-border last:border-0">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-foreground truncate">{r.full_name}</p>
+                    <p className="text-xs text-muted-foreground truncate">{r.email}{r.company?` · ${r.company}`:""}</p>
+                    {r.use_case&&<p className="text-[11px] text-muted-foreground/60 truncate mt-0.5">{r.use_case}</p>}
+                  </div>
+                  <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${r.status==="approved"?"bg-emerald-500/10 text-emerald-400":r.status==="rejected"?"bg-red-500/10 text-red-400":"bg-amber-500/10 text-amber-400"}`}>{r.status}</span>
+                  {r.status==="pending"&&(
+                    <div className="flex gap-1.5 shrink-0">
+                      <button onClick={()=>approveBetaRequest(r)} className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-400 text-xs font-medium hover:bg-emerald-500/20 transition-colors">
+                        <UserCheck className="w-3.5 h-3.5"/>Approve
+                      </button>
+                      <button onClick={()=>rejectBetaRequest(r)} className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-red-500/10 text-red-400 text-xs font-medium hover:bg-red-500/20 transition-colors">
+                        <UserX className="w-3.5 h-3.5"/>Reject
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
 
           <div className="bg-card border border-border rounded-2xl p-5 space-y-4">
             <div className="space-y-1.5">

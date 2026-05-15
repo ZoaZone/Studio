@@ -1,0 +1,34 @@
+{
+  "name": "BetaRequest",
+  "type": "object",
+  "properties": {
+    "full_name": {
+      "type": "string"
+    },
+    "email": {
+      "type": "string"
+    },
+    "company": {
+      "type": "string"
+    },
+    "use_case": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "approved",
+        "rejected"
+      ],
+      "default": "pending"
+    },
+    "note": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "full_name",
+    "email"
+  ]
+}
