@@ -2,8 +2,8 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import {
-  CheckCircle2, Loader2, Sparkles, ArrowRight,
-  Gift, User, Eye, EyeOff, Mail, Lock, Copy, ExternalLink
+  CheckCircle2, Loader2, ArrowRight,
+  Gift, User, Mail, Lock
 } from "lucide-react";
 
 const APP_URL = "https://media.aevoice.ai";
@@ -25,9 +25,6 @@ export default function BetaOnboarding() {
   const [error, setError] = useState("");
 
   // Step 2
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [showPw, setShowPw] = useState(false);
   const [creatingAccount, setCreatingAccount] = useState(false);
 
   // Step 2 — manual invite code entry (if user lands without token)
@@ -120,25 +117,18 @@ export default function BetaOnboarding() {
     }
   };
 
-  // ── Step 2: Create account / sign in ──────────────────────────────────────
-  const handleCreateAccount = async () => {
-    if (!password || password.length < 8) { setError("Password must be at least 8 characters."); return; }
-    if (password !== confirmPassword) { setError("Passwords don't match."); return; }
-    setError("");
-    setCreatingAccount(true);
-    try {
-      // Try sign up first; if exists, sign in
-      try {
-        await base44.auth.signUp({ email: invite.email, password });
-      } catch {
-        await base44.auth.signIn({ email: invite.email, password });
-      }
-      setCreatingAccount(false);
-      setStep(3);
-    } catch (e) {
-      setError(e.message || "Account creation failed. Try a different password or sign in.");
-      setCreatingAccount(false);
+  // ── Step 2: Redirect to Base44 login/signup ───────────────────────────────
+  const handleCreateAccount = () => {
+    // Store invite token in sessionStorage so we can resume after auth
+    if (invite?.invite_token) {
+      sessionStorage.setItem("beta_invite_token", invite.invite_token);
+      sessionStorage.setItem("beta_invite_email", invite.email);
     }
+    // Redirect to Base44 login — after login they'll come back to this page
+    const returnUrl = invite?.invite_token
+      ? `/invite/${invite.invite_token}`
+      : `/invite`;
+    base44.auth.redirectToLogin(returnUrl);
   };
 
   // ── Step 3: Save profile & activate subscription ───────────────────────────
@@ -354,70 +344,32 @@ export default function BetaOnboarding() {
             </div>
           )}
 
-          {/* STEP 2: Create Account */}
+          {/* STEP 2: Create Account — redirect to Base44 auth */}
           {step === 2 && (
-            <div>
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-10 h-10 rounded-xl bg-purple-500/20 border border-purple-500/30 flex items-center justify-center">
-                  <Lock className="w-5 h-5 text-purple-400" />
-                </div>
-                <div>
-                  <h2 className="text-lg font-bold text-white">Create Your Password</h2>
-                  <p className="text-white/40 text-xs">{invite?.email}</p>
+            <div className="text-center">
+              <div className="w-14 h-14 rounded-2xl bg-purple-500/20 border border-purple-500/30 flex items-center justify-center mx-auto mb-5">
+                <Lock className="w-7 h-7 text-purple-400" />
+              </div>
+              <h2 className="text-xl font-bold text-white mb-2">Create Your Account</h2>
+              <p className="text-white/50 text-sm mb-1">Your invite is reserved for</p>
+              <p className="text-fuchsia-300 font-semibold text-sm mb-6">{invite?.email}</p>
+
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-4 mb-6 text-left">
+                <div className="flex items-center gap-3">
+                  <Mail className="w-4 h-4 text-white/30 shrink-0" />
+                  <span className="text-white/50 text-sm">{invite?.email}</span>
                 </div>
               </div>
 
-              {error && (
-                <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-3 mb-4 text-red-400 text-sm">{error}</div>
-              )}
-
-              <div className="space-y-4 mb-6">
-                <div>
-                  <label className="text-white/60 text-xs font-medium mb-1.5 block">Email</label>
-                  <div className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-xl px-4 py-3">
-                    <Mail className="w-4 h-4 text-white/30" />
-                    <span className="text-white/50 text-sm">{invite?.email}</span>
-                  </div>
-                </div>
-                <div>
-                  <label className="text-white/60 text-xs font-medium mb-1.5 block">Password</label>
-                  <div className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-xl px-4 py-3">
-                    <Lock className="w-4 h-4 text-white/30" />
-                    <input
-                      type={showPw ? "text" : "password"}
-                      value={password}
-                      onChange={e => setPassword(e.target.value)}
-                      onKeyDown={e => e.key === "Enter" && handleCreateAccount()}
-                      placeholder="Min. 8 characters"
-                      className="flex-1 bg-transparent text-white text-sm outline-none placeholder:text-white/20"
-                    />
-                    <button onClick={() => setShowPw(!showPw)} className="text-white/30 hover:text-white/60">
-                      {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
-                  </div>
-                </div>
-                <div>
-                  <label className="text-white/60 text-xs font-medium mb-1.5 block">Confirm Password</label>
-                  <div className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-xl px-4 py-3">
-                    <Lock className="w-4 h-4 text-white/30" />
-                    <input
-                      type={showPw ? "text" : "password"}
-                      value={confirmPassword}
-                      onChange={e => setConfirmPassword(e.target.value)}
-                      onKeyDown={e => e.key === "Enter" && handleCreateAccount()}
-                      placeholder="Repeat password"
-                      className="flex-1 bg-transparent text-white text-sm outline-none placeholder:text-white/20"
-                    />
-                  </div>
-                </div>
-              </div>
+              <p className="text-white/40 text-xs mb-6">
+                You'll be taken to a secure sign-up page to set your password. Once done, you'll be brought right back here.
+              </p>
 
               <button
                 onClick={handleCreateAccount}
-                disabled={creatingAccount}
-                className="w-full py-3.5 bg-gradient-to-r from-fuchsia-600 to-purple-600 hover:from-fuchsia-500 hover:to-purple-500 disabled:opacity-50 text-white rounded-2xl font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-lg shadow-fuchsia-500/20"
+                className="w-full py-3.5 bg-gradient-to-r from-fuchsia-600 to-purple-600 hover:from-fuchsia-500 hover:to-purple-500 text-white rounded-2xl font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-lg shadow-fuchsia-500/20"
               >
-                {creatingAccount ? <><Loader2 className="w-4 h-4 animate-spin" />Creating Account…</> : <>Create Account <ArrowRight className="w-4 h-4" /></>}
+                Set Up Password & Continue <ArrowRight className="w-4 h-4" />
               </button>
 
               <p className="text-center text-white/20 text-xs mt-4">
