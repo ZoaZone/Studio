@@ -1,111 +1,199 @@
 import { useState } from "react";
 import { useOutletContext } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
-import { CreditCard, ArrowRight, CheckCircle2, Loader2, ExternalLink, TrendingUp } from "lucide-react";
+import { CreditCard, Check, Zap, Loader2, ExternalLink, TrendingUp, Calendar, AlertCircle } from "lucide-react";
 import { Link } from "react-router-dom";
+import PayPalButton from "@/components/PayPalButton";
 
-const PLANS=[
-  {name:"Starter",price:49,tier:1,features:["1 client","500 AI gen/mo","1K messages","3 socials"]},
-  {name:"Growth",price:149,tier:2,popular:true,features:["5 clients","2.5K AI gen/mo","10K messages","15 socials"]},
-  {name:"Agency",price:399,tier:3,features:["Unlimited clients","10K AI gen/mo","50K messages","Unlimited socials","Affiliate & Agency portals"]},
+const PLANS = [
+  {
+    name: "Starter", key: "starter", price_monthly: 49, price_yearly: 470, tier: 1,
+    color: "border-white/10",
+    features: ["1 client account", "500 AI generations/mo", "1,000 bulk messages/mo", "3 social accounts", "Basic funnel builder", "Email support"],
+  },
+  {
+    name: "Growth", key: "growth", price_monthly: 149, price_yearly: 1430, tier: 2,
+    popular: true, color: "border-fuchsia-500/40",
+    features: ["5 client accounts", "2,500 AI generations/mo", "10,000 bulk messages/mo", "15 social accounts", "Advanced funnels", "Website scanner", "Ad creator + script writer", "Priority support"],
+  },
+  {
+    name: "Agency", key: "agency", price_monthly: 399, price_yearly: 3830, tier: 3,
+    color: "border-white/10",
+    features: ["Unlimited clients", "10,000 AI generations/mo", "50,000 bulk messages/mo", "Unlimited social accounts", "White-label", "Affiliate portal", "Agency portal", "Dedicated manager"],
+  },
 ];
 
 export default function Billing() {
-  const {user}=useOutletContext()||{};
-  const [loadingPortal,setLoadingPortal]=useState(false);
+  const { user } = useOutletContext() || {};
+  const qc = useQueryClient();
+  const [billing, setBilling] = useState("monthly");
+  const [loading, setLoading] = useState(null);
+  const [loadingPortal, setLoadingPortal] = useState(false);
+  const [error, setError] = useState("");
 
-  const {data:sub}=useQuery({
-    queryKey:["subscription",user?.email],
-    queryFn:()=>base44.entities.Subscription.filter({owner_email:user?.email},null,1).then(r=>r[0]||null),
-    enabled:!!user?.email,
+  const { data: sub } = useQuery({
+    queryKey: ["subscription", user?.email],
+    queryFn: () => base44.entities.Subscription.filter({ owner_email: user?.email }, null, 1).then(r => r[0] || null),
+    enabled: !!user?.email,
   });
-  const {data:campaigns=[]}=useQuery({queryKey:["campaigns_b"],queryFn:()=>base44.entities.MarketingCampaign.list(null,200)});
-  const {data:assets=[]}=useQuery({queryKey:["assets_b"],queryFn:()=>base44.entities.ContentAsset.list(null,200)});
-  const {data:posts=[]}=useQuery({queryKey:["posts_b"],queryFn:()=>base44.entities.ScheduledPost.list(null,200)});
 
-  const totalSent=campaigns.reduce((s,c)=>s+(c.sent_count||0),0);
-  const aiGenCount=assets.filter(a=>a.ai_generated).length;
-  const postsCount=posts.length;
+  const { data: campaigns = [] } = useQuery({ queryKey: ["campaigns_b"], queryFn: () => base44.entities.MarketingCampaign.list(null, 200) });
+  const { data: assets = [] } = useQuery({ queryKey: ["assets_b"], queryFn: () => base44.entities.ContentAsset.list(null, 200) });
+  const { data: messages = [] } = useQuery({ queryKey: ["messages_b"], queryFn: () => base44.entities.BulkMessage.list(null, 500) });
 
-  const openPortal=async()=>{
+  const totalSent = messages.filter(m => m.status === "delivered").length;
+  const aiGenCount = assets.filter(a => a.ai_generated).length;
+
+  const subscribe = async (planKey, planName, amount) => {
+    setLoading(planKey);
+    setError("");
+    try {
+      const res = await base44.functions.invoke("stripeCheckoutCREAM", { plan: planKey, billing });
+      if (res?.checkout_url) {
+        window.location.href = res.checkout_url;
+      } else if (res?.success) {
+        qc.invalidateQueries(["subscription"]);
+        setLoading(null);
+      } else {
+        setError(res?.error || "Something went wrong");
+      }
+    } catch (e) {
+      setError(e.message);
+    }
+    setLoading(null);
+  };
+
+  const openPortal = async () => {
     setLoadingPortal(true);
-    try{
-      const res=await base44.functions.invoke("stripePortalMarketer",{email:user?.email,return_url:window.location.href});
-      if(res?.url) window.location.href=res.url;
-      else alert("Could not open billing portal. Contact care@aevoice.ai");
-    }catch(e){alert("Portal error: "+e.message);}
+    setError("");
+    try {
+      const res = await base44.functions.invoke("stripePortalMarketer", { return_url: window.location.href });
+      if (res?.url) window.location.href = res.url;
+      else setError(res?.error || "Could not open billing portal. Contact care@aevoice.ai");
+    } catch (e) { setError(e.message); }
     setLoadingPortal(false);
   };
 
-  const currentPlan=PLANS.find(p=>p.name===sub?.plan_name)||null;
+  const currentPlan = PLANS.find(p => p.name === sub?.plan_name) || null;
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6">
+    <div className="max-w-4xl mx-auto space-y-6 pb-8">
       <div>
-        <h1 className="text-2xl font-black text-foreground flex items-center gap-2"><CreditCard className="w-6 h-6 text-fuchsia-400"/>Billing</h1>
-        <p className="text-muted-foreground text-sm">Plan, usage and payment management</p>
+        <h1 className="text-2xl font-black text-foreground flex items-center gap-2">
+          <CreditCard className="w-6 h-6 text-fuchsia-400" /> Billing
+        </h1>
+        <p className="text-muted-foreground text-sm">Manage your plan, usage, and payments</p>
       </div>
 
-      <div className={`bg-card border rounded-2xl p-6 ${currentPlan?.popular?"border-fuchsia-500/40 shadow-lg shadow-fuchsia-500/10":"border-border"}`}>
-        <div className="flex items-start justify-between flex-wrap gap-4">
-          <div>
-            <p className="text-xs text-muted-foreground mb-1">Current Plan</p>
-            {sub?(
-              <>
-                <h2 className="text-2xl font-black text-foreground">{sub.plan_name} <span className="text-fuchsia-400">${currentPlan?.price||""}/mo</span></h2>
-                <div className="flex items-center gap-2 mt-2">
-                  <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${sub.status==="active"?"bg-emerald-500/10 text-emerald-400":"bg-muted text-muted-foreground"}`}>{sub.status}</span>
-                  {sub.current_period_end&&<span className="text-xs text-muted-foreground">Renews {new Date(sub.current_period_end).toLocaleDateString()}</span>}
-                </div>
-              </>
-            ):(
-              <><h2 className="text-2xl font-black text-foreground">Free Trial</h2><p className="text-sm text-muted-foreground mt-1">Upgrade to unlock all features</p></>
-            )}
-          </div>
-          <div className="flex gap-2 flex-wrap">
-            {sub&&<button onClick={openPortal} disabled={loadingPortal} className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border text-sm font-medium hover:bg-muted/20 disabled:opacity-60">
-              {loadingPortal?<Loader2 className="w-4 h-4 animate-spin"/>:<><ExternalLink className="w-4 h-4"/>Manage Subscription</>}
-            </button>}
-            <Link to="/pricing" className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-fuchsia-500 to-purple-600 text-white text-sm font-semibold hover:opacity-90 shadow-lg shadow-fuchsia-500/20">
-              {sub?"Upgrade Plan":"Choose Plan"}<ArrowRight className="w-4 h-4"/>
-            </Link>
-          </div>
+      {error && (
+        <div className="flex items-center gap-3 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+          <AlertCircle className="w-4 h-4 flex-shrink-0" /> {error}
         </div>
-      </div>
+      )}
 
-      <div className="bg-card border border-border rounded-2xl p-5">
-        <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2"><TrendingUp className="w-4 h-4 text-fuchsia-400"/>Usage</h3>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {[{l:"Messages Sent",v:totalSent.toLocaleString()},{l:"AI Generations",v:aiGenCount},{l:"Posts",v:postsCount},{l:"Campaigns",v:campaigns.length}].map(u=>(
-            <div key={u.l} className="p-3 bg-muted/20 rounded-xl">
-              <div className="text-xl font-black text-foreground">{u.v}</div>
-              <div className="text-xs text-muted-foreground">{u.l}</div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="space-y-3">
-        <h3 className="font-semibold text-foreground">All Plans</h3>
-        {PLANS.map(plan=>(
-          <div key={plan.name} className={`bg-card border rounded-2xl p-4 flex items-center justify-between flex-wrap gap-3 ${currentPlan?.name===plan.name?"border-fuchsia-500/30 opacity-100":"border-border opacity-70 hover:opacity-90"}`}>
+      {/* Current plan */}
+      {sub && (
+        <div className={`bg-card border rounded-2xl p-6 ${currentPlan?.popular ? "border-fuchsia-500/40 shadow-lg shadow-fuchsia-500/10" : "border-border"}`}>
+          <div className="flex items-start justify-between flex-wrap gap-4">
             <div>
-              <div className="flex items-center gap-2">
-                <span className="font-bold text-foreground">{plan.name}</span>
-                {plan.popular&&<span className="text-[10px] px-2 py-0.5 bg-fuchsia-500/20 text-fuchsia-400 rounded-full font-medium">Popular</span>}
-                {currentPlan?.name===plan.name&&<CheckCircle2 className="w-4 h-4 text-emerald-400"/>}
+              <div className="flex items-center gap-2 mb-1">
+                <Zap className="w-4 h-4 text-fuchsia-400" />
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Current Plan</span>
               </div>
-              <div className="flex flex-wrap gap-2 mt-1">{plan.features.map(f=><span key={f} className="text-[10px] text-muted-foreground">{f}</span>)}</div>
+              <h2 className="text-2xl font-black text-foreground">{sub.plan_name || "Free"}</h2>
+              <p className={`text-xs mt-1 font-medium px-2 py-0.5 rounded-full inline-block ${sub.status === "active" ? "bg-emerald-500/10 text-emerald-400" : "bg-amber-500/10 text-amber-400"}`}>
+                {sub.status}
+              </p>
             </div>
-            <div className="flex items-center gap-3">
-              <span className="text-xl font-black text-foreground">${plan.price}<span className="text-xs text-muted-foreground">/mo</span></span>
-              {currentPlan?.name!==plan.name&&<Link to="/pricing" className="px-3 py-1.5 rounded-lg bg-fuchsia-500/10 text-fuchsia-400 text-xs font-semibold hover:bg-fuchsia-500/20">Select</Link>}
-            </div>
+            <button onClick={openPortal} disabled={loadingPortal}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border text-sm font-medium text-muted-foreground hover:text-foreground hover:border-fuchsia-500/30 transition-all disabled:opacity-50">
+              {loadingPortal ? <Loader2 className="w-4 h-4 animate-spin" /> : <ExternalLink className="w-4 h-4" />}
+              Manage Subscription
+            </button>
           </div>
-        ))}
+
+          {/* Usage */}
+          <div className="grid grid-cols-3 gap-4 mt-5 pt-5 border-t border-border">
+            {[
+              { label: "Messages Sent", value: totalSent, limit: currentPlan?.name === "Starter" ? "1,000" : currentPlan?.name === "Growth" ? "10,000" : "50,000" },
+              { label: "AI Generations", value: aiGenCount, limit: currentPlan?.name === "Starter" ? "500" : currentPlan?.name === "Growth" ? "2,500" : "10,000" },
+              { label: "Campaigns", value: campaigns.length, limit: "∞" },
+            ].map(u => (
+              <div key={u.label}>
+                <div className="text-xl font-black text-foreground">{u.value.toLocaleString()}</div>
+                <div className="text-xs text-muted-foreground">{u.label}</div>
+                <div className="text-xs text-muted-foreground/50">of {u.limit}/mo</div>
+              </div>
+            ))}
+          </div>
+
+          {sub.current_period_end && (
+            <p className="text-xs text-muted-foreground mt-4 flex items-center gap-1.5">
+              <Calendar className="w-3 h-3" />
+              Renews {new Date(sub.current_period_end).toLocaleDateString("en", { month: "long", day: "numeric", year: "numeric" })}
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* Billing toggle */}
+      <div className="flex items-center gap-3 justify-center">
+        <button onClick={() => setBilling("monthly")} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${billing === "monthly" ? "bg-fuchsia-500/10 text-fuchsia-400" : "text-muted-foreground"}`}>Monthly</button>
+        <button onClick={() => setBilling("yearly")} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${billing === "yearly" ? "bg-fuchsia-500/10 text-fuchsia-400" : "text-muted-foreground"}`}>
+          Yearly <span className="ml-1 text-xs bg-emerald-500/10 text-emerald-400 px-1.5 py-0.5 rounded-full">Save 20%</span>
+        </button>
       </div>
-      <p className="text-xs text-center text-muted-foreground">Billing questions: <a href="mailto:care@aevoice.ai" className="text-fuchsia-400 hover:underline">care@aevoice.ai</a></p>
+
+      {/* Plans */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {PLANS.map(plan => {
+          const price = billing === "yearly" ? plan.price_yearly : plan.price_monthly;
+          const isCurrent = sub?.plan_name === plan.name;
+          return (
+            <div key={plan.key} className={`bg-card border rounded-2xl p-6 flex flex-col ${plan.popular ? "border-fuchsia-500/40 shadow-lg shadow-fuchsia-500/10" : "border-border"}`}>
+              {plan.popular && <div className="text-xs font-bold text-fuchsia-400 uppercase tracking-widest mb-2">Most Popular</div>}
+              <h3 className="text-lg font-black text-foreground">{plan.name}</h3>
+              <div className="mt-2 mb-4">
+                <span className="text-3xl font-black text-foreground">${price}</span>
+                <span className="text-muted-foreground text-sm">/{billing === "yearly" ? "yr" : "mo"}</span>
+              </div>
+              <ul className="space-y-2 flex-1 mb-5">
+                {plan.features.map(f => (
+                  <li key={f} className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Check className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" /> {f}
+                  </li>
+                ))}
+              </ul>
+
+              {isCurrent ? (
+                <div className="w-full text-center py-2.5 rounded-xl bg-emerald-500/10 text-emerald-400 text-sm font-semibold">
+                  ✓ Current Plan
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <button onClick={() => subscribe(plan.key, plan.name, price)} disabled={loading === plan.key}
+                    className="w-full py-2.5 rounded-xl bg-gradient-to-r from-fuchsia-500 to-purple-600 text-white text-sm font-semibold hover:opacity-90 transition-opacity shadow-lg shadow-fuchsia-500/20 disabled:opacity-50 flex items-center justify-center gap-2">
+                    {loading === plan.key ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                    {loading === plan.key ? "Processing..." : `Upgrade to ${plan.name}`}
+                  </button>
+                  <PayPalButton
+                    amount={Math.round(price * 83.5)}
+                    currency="INR"
+                    planName={plan.name}
+                    sourceApp="marketer"
+                    userEmail={user?.email || ""}
+                  />
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      <p className="text-center text-xs text-muted-foreground">
+        Questions? <a href="mailto:care@aevoice.ai" className="text-fuchsia-400 hover:underline">care@aevoice.ai</a> · 14-day free trial on Growth plan
+      </p>
     </div>
   );
 }
