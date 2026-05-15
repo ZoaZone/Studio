@@ -29,18 +29,9 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const base44 = createClientFromRequest(req);
-    const user = await base44.auth.me();
-    if (!user) {
-      return Response.json({ error: 'Unauthorized' }, {
-        status: 401,
-        headers: { 'Access-Control-Allow-Origin': '*' },
-      });
-    }
-
-    const { to, subject, body, html, from_name } = await req.json();
-    if (!to || !subject || !body) {
-      return Response.json({ error: 'to, subject, and body are required' }, {
+    const { to, subject, body, text, html, from_name } = await req.json();
+    if (!to || !subject || (!body && !text && !html)) {
+      return Response.json({ error: 'to, subject, and body/text are required' }, {
         status: 400,
         headers: { 'Access-Control-Allow-Origin': '*' },
       });
@@ -49,7 +40,7 @@ Deno.serve(async (req) => {
     const fromName = from_name || 'Agent Marketer';
     // media.aevoice.ai is verified in Resend — use as primary fallback domain
     const fromEmail = Deno.env.get('RESEND_FROM_EMAIL') || 'noreply@media.aevoice.ai';
-    const htmlContent = html || `<pre style="font-family:sans-serif;white-space:pre-wrap">${body}</pre>`;
+    const htmlContent = html || `<pre style="font-family:sans-serif;white-space:pre-wrap">${text || body || ''}</pre>`;
 
     // ── PRIMARY: Resend (media.aevoice.ai — verified ✅) ─────────────────────
     const resendKey = Deno.env.get('RESEND_API_KEY');
@@ -64,7 +55,7 @@ Deno.serve(async (req) => {
           from: `${fromName} <${fromEmail}>`,
           to: [to],
           subject,
-          text: body,
+          text: text || body || '',
           html: htmlContent,
         }),
       });
@@ -98,7 +89,7 @@ Deno.serve(async (req) => {
       from: { email: sgFromEmail, name: fromName },
       subject,
       content: [
-        { type: 'text/plain', value: body },
+        { type: 'text/plain', value: text || body || '' },
         { type: 'text/html', value: htmlContent },
       ],
     };
