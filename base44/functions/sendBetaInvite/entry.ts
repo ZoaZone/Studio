@@ -19,7 +19,7 @@ const buildInviteHtml = (inviteUrl: string, note: string, firstName: string) => 
     <tr><td align="center">
       <table width="560" cellpadding="0" cellspacing="0" style="background:#111118;border-radius:24px;border:1px solid #1f1f2e;overflow:hidden;max-width:560px;width:100%;">
         <tr><td style="background:linear-gradient(135deg,#7c3aed,#a855f7,#ec4899);padding:36px 40px;text-align:center;">
-          <div style="font-size:32px;font-weight:900;color:#fff;letter-spacing:-1px;">MARKETER</div>
+          <div style="font-size:32px;font-weight:900;color:#fff;letter-spacing:-1px;">media.aevoice.ai</div>
           <div style="font-size:13px;color:rgba(255,255,255,0.7);margin-top:4px;">by AEVOICE · media.aevoice.ai</div>
         </td></tr>
         <tr><td style="padding:40px;">
@@ -28,10 +28,10 @@ const buildInviteHtml = (inviteUrl: string, note: string, firstName: string) => 
           </div>
           <h1 style="color:#fff;font-size:24px;font-weight:800;margin:0 0 12px;line-height:1.3;">
             ${firstName ? `Hi ${firstName}, you're invited` : "You're invited"} to join<br/>
-            <span style="background:linear-gradient(90deg,#a855f7,#ec4899);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">MARKETER Beta</span>
+            <span style="background:linear-gradient(90deg,#a855f7,#ec4899);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">media.aevoice.ai Beta</span>
           </h1>
-          <p style="color:#888;font-size:15px;line-height:1.6;margin:0 0 24px;">Our team has personally selected you for exclusive early access to MARKETER — the AI-powered marketing platform for modern brands and agencies.</p>
-          ${note ? `<div style="background:#1a1a2e;border-left:3px solid #a855f7;border-radius:8px;padding:14px 16px;margin-bottom:24px;"><p style="color:#ccc;font-size:14px;margin:0;font-style:italic;">"${note}"</p><p style="color:#666;font-size:12px;margin:6px 0 0;">— The MARKETER Team</p></div>` : ''}
+          <p style="color:#888;font-size:15px;line-height:1.6;margin:0 0 24px;">Our team has personally selected you for exclusive early access to media.aevoice.ai — the AI-powered marketing platform for modern brands and agencies.</p>
+          ${note ? `<div style="background:#1a1a2e;border-left:3px solid #a855f7;border-radius:8px;padding:14px 16px;margin-bottom:24px;"><p style="color:#ccc;font-size:14px;margin:0;font-style:italic;">"${note}"</p><p style="color:#666;font-size:12px;margin:6px 0 0;">— The media.aevoice.ai Team</p></div>` : ''}
           <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:28px;">
             <tr><td style="padding:4px 0;color:#ccc;font-size:14px;">✅&nbsp; Full <strong>Agency-tier</strong> access — free for 1 year</td></tr>
             <tr><td style="padding:4px 0;color:#ccc;font-size:14px;">✅&nbsp; AI Media Studio — visuals, copy, video scripts</td></tr>
@@ -112,7 +112,7 @@ Deno.serve(async (req) => {
     const inviteUrl = `${APP_URL}/invite/${token}`;
     const firstName = full_name ? full_name.split(' ')[0] : '';
     const htmlBody = buildInviteHtml(inviteUrl, note, firstName);
-    const plainText = `Hi${firstName ? ` ${firstName}` : ''}!\n\nYou've been personally invited to MARKETER Beta — full Agency-tier access, completely free.\n\n${note ? `Personal note: "${note}"\n\n` : ''}👉 Claim your access here:\n${inviteUrl}\n\nThis link is exclusive to you and expires in 30 days.\n\nQuestions? hello@aevoice.ai\n\n— The MARKETER Team`;
+    const plainText = `Hi${firstName ? ` ${firstName}` : ''}!\n\nYou've been personally invited to media.aevoice.ai Beta — full Agency-tier access, completely free.\n\n${note ? `Personal note: "${note}"\n\n` : ''}👉 Claim your access here:\n${inviteUrl}\n\nThis link is exclusive to you and expires in 30 days.\n\nQuestions? hello@aevoice.ai\n\n— The media.aevoice.ai Team`;
 
     // ── PRIMARY: Resend ──────────────────────────────────────────────────────
     const resendKey = Deno.env.get('RESEND_API_KEY');
@@ -124,9 +124,9 @@ Deno.serve(async (req) => {
         method: 'POST',
         headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          from: `MARKETER by AEVOICE <${fromEmail}>`,
+          from: `media.aevoice.ai by AEVOICE <${fromEmail}>`,
           to: [email],
-          subject: `🎉 You're personally invited — Free Beta Access to MARKETER`,
+          subject: `🎉 You're personally invited — Free Beta Access to media.aevoice.ai`,
           text: plainText,
           html: htmlBody,
         }),
@@ -150,8 +150,8 @@ Deno.serve(async (req) => {
           headers: { Authorization: `Bearer ${sgKey}`, 'Content-Type': 'application/json' },
           body: JSON.stringify({
             personalizations: [{ to: [{ email }] }],
-            from: { email: sgFrom, name: 'MARKETER by AEVOICE' },
-            subject: `🎉 You're personally invited — Free Beta Access to MARKETER`,
+            from: { email: sgFrom, name: 'media.aevoice.ai by AEVOICE' },
+            subject: `🎉 You're personally invited — Free Beta Access to media.aevoice.ai`,
             content: [
               { type: 'text/plain', value: plainText },
               { type: 'text/html', value: htmlBody },
