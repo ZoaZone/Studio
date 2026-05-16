@@ -201,7 +201,7 @@ Deno.serve(async (req) => {
     if (provider === 'none') {
       const resendKey = Deno.env.get('RESEND_API_KEY');
       if (resendKey) {
-        const resendFrom = 'AEVOICE <onboarding@resend.dev>';
+        const resendFrom = 'AEVOICE <hello@media.aevoice.ai>';
         const res = await fetch('https://api.resend.com/emails', {
           method: 'POST',
           headers: { Authorization: 'Bearer ' + resendKey, 'Content-Type': 'application/json' },
