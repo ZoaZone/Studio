@@ -36,6 +36,8 @@ import AffiliatePortal from './pages/AffiliatePortal';
 import AgencyPortal from './pages/AgencyPortal';
 import BetaSignup from './pages/BetaSignup';
 import BetaOnboarding from './pages/BetaOnboarding';
+import AgentProgram from './pages/AgentProgram';
+import AgencyEnquiry from './pages/AgencyEnquiry';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -76,6 +78,8 @@ const AuthenticatedApp = () => {
       <Route path="/beta" element={<BetaSignup />} />
       <Route path="/invite/:token" element={<BetaOnboarding />} />
       <Route path="/invite" element={<BetaOnboarding />} />
+      <Route path="/agent-program" element={<AgentProgram />} />
+      <Route path="/agency-enquiry" element={<AgencyEnquiry />} />
 
       <Route element={<AppLayout />}>
         <Route path="/dashboard" element={<Dashboard />} />

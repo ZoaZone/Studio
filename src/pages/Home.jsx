@@ -523,9 +523,11 @@ export default function Home() {
             <span className="text-white/30 text-xs ml-2">by AEVOICE</span>
           </div>
           <p className="text-white/30 text-xs">© 2026 AEVOICE · "The omnichannel AI platform for voice calls, SMS, web chat, WhatsApp, email, and social media." · Part of AEVOICE.AI. All rights reserved · media.aevoice.ai</p>
-          <div className="flex gap-4 text-xs text-white/40">
+          <div className="flex flex-wrap gap-4 text-xs text-white/40 items-center">
             <a href="mailto:care@aevoice.ai" className="hover:text-white/70">care@aevoice.ai</a>
             <a href="https://aevoice.ai" className="hover:text-white/70">aevoice.ai</a>
+            <Link to="/agent-program" className="hover:text-fuchsia-400 font-semibold text-white/50 transition-colors">🤝 Agent Program — Earn 50%</Link>
+            <Link to="/agency-enquiry" className="hover:text-purple-400 font-semibold text-white/50 transition-colors">🏢 Agency Enquiry</Link>
           </div>
         </div>
       <p className="text-center text-xs text-slate-600 mt-4">Part of AEVOICE.AI — The ultimate business technology.</p>
