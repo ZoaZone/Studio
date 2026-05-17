@@ -6,7 +6,7 @@ import { createAxiosClient } from '@base44/sdk/dist/utils/axios-client';
 const AuthContext = createContext();
 
 // Routes that are always public — no auth check needed
-const PUBLIC_PATHS = new Set(["/", "/Home", "/home", "/pricing", "/Pricing", "/WidgetHost", "/login", "/beta", "/lead-capture", "/onboarding"]);
+const PUBLIC_PATHS = new Set(["/", "/Home", "/home", "/pricing", "/Pricing", "/WidgetHost", "/login", "/auth", "/beta", "/lead-capture", "/onboarding"]);
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
@@ -112,7 +112,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   const navigateToLogin = () => {
-    base44.auth.redirectToLogin(window.location.href);
+    window.location.href = `/auth`;
   };
 
   return (

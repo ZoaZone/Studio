@@ -30,6 +30,7 @@ import PostPaymentOnboarding from './pages/PostPaymentOnboarding';
 import AdminDashboard from './pages/AdminDashboard';
 import AppLayout from './components/layout/AppLayout';
 import Login from './pages/Login';
+import Auth from './pages/Auth';
 import Notifications from './pages/Notifications';
 import HelpCenter from './pages/HelpCenter';
 import AffiliatePortal from './pages/AffiliatePortal';
@@ -59,7 +60,7 @@ const AuthenticatedApp = () => {
     if (authError.type === 'user_not_registered') {
       return <UserNotRegisteredError />;
     } else if (authError.type === 'auth_required') {
-      const publicPaths = new Set(["/", "/Home", "/home", "/pricing", "/Pricing", "/WidgetHost", "/PromoSignup", "/login"]);
+      const publicPaths = new Set(["/", "/Home", "/home", "/pricing", "/Pricing", "/WidgetHost", "/PromoSignup", "/login", "/auth"]);
       if (!publicPaths.has(window.location.pathname)) { navigateToLogin(); }
       return null;
     }
@@ -73,6 +74,7 @@ const AuthenticatedApp = () => {
       <Route path="/pricing" element={<Pricing />} />
       <Route path="/Pricing" element={<Pricing />} />
       <Route path="/login" element={<Login />} />
+      <Route path="/auth" element={<Auth />} />
       <Route path="/onboarding" element={<PostPaymentOnboarding />} />
       <Route path="/lead-capture" element={<LeadCapturePage />} />
       <Route path="/beta" element={<BetaSignup />} />

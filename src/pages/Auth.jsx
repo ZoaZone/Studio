@@ -1,0 +1,218 @@
+import { useState, useEffect } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
+import { base44 } from "@/api/base44Client";
+import { ArrowLeft, CheckCircle2 } from "lucide-react";
+import StepEmail from "@/components/auth/StepEmail";
+import StepVerifyOTP from "@/components/auth/StepVerifyOTP";
+import StepSetPassword from "@/components/auth/StepSetPassword";
+
+const DASHBOARD = "/dashboard";
+
+/**
+ * Auth — fully custom, zero Base44 branding.
+ *
+ * Flows:
+ *  LOGIN:  enter email → verify OTP → enter password → sign in
+ *  SIGNUP: enter email → verify OTP → set name + password → register
+ *  RESET:  enter email → verify OTP → create new password → sign in
+ */
+export default function Auth() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const from = location.state?.from?.pathname || DASHBOARD;
+
+  const [mode, setMode] = useState("login"); // "login" | "signup" | "reset"
+  const [step, setStep] = useState("email"); // "email" | "otp" | "password"
+  const [email, setEmail] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  // Already logged in → redirect
+  useEffect(() => {
+    const token = localStorage.getItem("base44_access_token");
+    if (token) navigate(from, { replace: true });
+  }, []);
+
+  const resetFlow = (newMode) => {
+    setMode(newMode);
+    setStep("email");
+    setEmail("");
+    setError("");
+  };
+
+  const handleOTPVerified = () => setStep("password");
+
+  const handlePasswordSubmit = async ({ password, name }) => {
+    setLoading(true);
+    setError("");
+    try {
+      if (mode === "signup") {
+        await base44.auth.signUp({ email, password, full_name: name });
+      } else {
+        // login or reset — try login first, fallback to signUp for new-password-reset users
+        try {
+          await base44.auth.login({ email, password });
+        } catch {
+          if (mode === "reset") {
+            await base44.auth.signUp({ email, password });
+          } else {
+            throw new Error("Invalid email or password.");
+          }
+        }
+      }
+      navigate(from, { replace: true });
+    } catch (err) {
+      setError(err?.message || "Authentication failed. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const titles = {
+    login: { email: "Sign in", otp: "Check your email", password: "Enter your password" },
+    signup: { email: "Create account", otp: "Verify your email", password: "Set your password" },
+    reset: { email: "Reset password", otp: "Check your email", password: "New password" },
+  };
+  const subtitles = {
+    login: {
+      email: "Enter your email to continue",
+      otp: "Enter the 6-digit code we sent you",
+      password: "Enter your password to sign in",
+    },
+    signup: {
+      email: "Enter your email to get started",
+      otp: "Enter the 6-digit code we sent you",
+      password: "Choose a strong password",
+    },
+    reset: {
+      email: "We'll send a verification code",
+      otp: "Enter the 6-digit code we sent you",
+      password: "Create a new password",
+    },
+  };
+
+  const stepIndex = { email: 0, otp: 1, password: 2 };
+
+  return (
+    <div className="min-h-screen flex items-center justify-center px-4 py-12" style={{ backgroundColor: "#050a14" }}>
+      {/* Background glow */}
+      <div className="pointer-events-none fixed inset-0 overflow-hidden">
+        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-[600px] h-[400px] rounded-full blur-3xl opacity-15"
+          style={{ background: "radial-gradient(circle, rgba(168,85,247,0.35), transparent)" }} />
+      </div>
+
+      <div className="w-full max-w-sm relative z-10">
+        {/* Back to home */}
+        <button onClick={() => navigate("/")}
+          className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-300 mb-7 transition-colors">
+          <ArrowLeft className="w-3.5 h-3.5" /> Back to home
+        </button>
+
+        {/* Logo + branding */}
+        <div className="text-center mb-7">
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl border border-white/10 bg-white/5 mb-3 shadow-xl overflow-hidden">
+            <img
+              src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/692b24a5bac54e3067972063/2e8a22a03_AevoiceLogo.JPG"
+              alt="AEVOICE" className="w-10 h-10 object-cover rounded-xl"
+              onError={e => { e.target.style.display = "none"; }} />
+          </div>
+          <h1 className="text-lg font-black text-white tracking-tight">media.aevoice.ai</h1>
+          <p className="text-xs text-slate-400 mt-0.5">AI Marketing & Media Platform</p>
+        </div>
+
+        {/* 3-step progress bar */}
+        <div className="flex items-center justify-center gap-2 mb-6">
+          {["email", "otp", "password"].map((s, i) => {
+            const done = stepIndex[step] > i;
+            const active = step === s;
+            return (
+              <div key={s} className="flex items-center gap-2">
+                <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold transition-all ${
+                  active ? "bg-violet-500 text-white shadow-lg shadow-violet-500/30"
+                  : done ? "bg-emerald-500 text-white"
+                  : "bg-slate-800 text-slate-500 border border-slate-700"
+                }`}>
+                  {done ? <CheckCircle2 className="w-4 h-4" /> : i + 1}
+                </div>
+                {i < 2 && (
+                  <div className={`w-8 h-0.5 rounded-full transition-all ${done ? "bg-emerald-500" : "bg-slate-700"}`} />
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Card */}
+        <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 backdrop-blur-sm shadow-2xl">
+          <div className="text-center mb-5">
+            <h2 className="text-base font-bold text-white">{titles[mode][step]}</h2>
+            <p className="text-xs text-slate-400 mt-1">{subtitles[mode][step]}</p>
+          </div>
+
+          {error && (
+            <div className="mb-4 p-3 rounded-lg text-xs bg-red-500/10 text-red-400 border border-red-500/20">{error}</div>
+          )}
+
+          {step === "email" && (
+            <StepEmail purpose={mode} onNext={(e) => { setEmail(e); setStep("otp"); }} />
+          )}
+
+          {step === "otp" && (
+            <StepVerifyOTP
+              email={email}
+              purpose={mode}
+              onVerified={handleOTPVerified}
+              onBack={() => setStep("email")}
+            />
+          )}
+
+          {step === "password" && (
+            <StepSetPassword
+              requireName={mode === "signup"}
+              label={mode === "signup" ? "Create Account" : mode === "reset" ? "Set New Password" : "Sign In"}
+              loading={loading}
+              onSubmit={handlePasswordSubmit}
+            />
+          )}
+
+          {/* Mode switcher */}
+          <div className="mt-5 pt-4 border-t border-slate-800 text-center space-y-2">
+            {mode === "login" && (
+              <>
+                <button onClick={() => resetFlow("reset")}
+                  className="block w-full text-xs text-slate-500 hover:text-slate-300 transition-colors">
+                  Forgot password?
+                </button>
+                <p className="text-xs text-slate-500">
+                  No account?{" "}
+                  <button onClick={() => resetFlow("signup")} className="text-violet-400 hover:underline font-medium">
+                    Sign up free
+                  </button>
+                </p>
+              </>
+            )}
+            {mode === "signup" && (
+              <p className="text-xs text-slate-500">
+                Already have an account?{" "}
+                <button onClick={() => resetFlow("login")} className="text-violet-400 hover:underline font-medium">
+                  Sign in
+                </button>
+              </p>
+            )}
+            {mode === "reset" && (
+              <button onClick={() => resetFlow("login")}
+                className="text-xs text-slate-500 hover:text-slate-300 transition-colors">
+                ← Back to sign in
+              </button>
+            )}
+          </div>
+        </div>
+
+        <p className="text-center text-xs text-slate-600 mt-4">
+          By continuing you agree to our{" "}
+          <a href="/privacy" className="hover:text-slate-400 underline">Privacy Policy</a>
+        </p>
+      </div>
+    </div>
+  );
+}
