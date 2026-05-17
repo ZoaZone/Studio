@@ -22,12 +22,12 @@ export default function Dashboard() {
   const todayLeads = leads.filter(l => l.captured_at && new Date(l.captured_at).toDateString() === new Date().toDateString()).length;
 
   const STATS = [
-    { label: "Total Contacts", value: contacts.length, Icon: Users, color: "text-fuchsia-400 bg-fuchsia-500/10", trend: "+12%" },
-    { label: "Active Campaigns", value: activeCampaigns, Icon: Megaphone, color: "text-purple-400 bg-purple-500/10", trend: `${campaigns.length} total` },
-    { label: "Messages Sent", value: totalSent.toLocaleString(), Icon: MessageSquare, color: "text-pink-400 bg-pink-500/10", trend: "all time" },
-    { label: "Scheduled Posts", value: pendingPosts, Icon: Clock, color: "text-amber-400 bg-amber-500/10", trend: "upcoming" },
-    { label: "Active Funnels", value: funnels.length, Icon: GitBranch, color: "text-emerald-400 bg-emerald-500/10", trend: "running" },
-    { label: "Today's Leads", value: todayLeads, Icon: TrendingUp, color: "text-blue-400 bg-blue-500/10", trend: `${leads.length} total` },
+    { label: "Total Contacts", value: contacts.length, Icon: Users, color: "text-fuchsia-400 bg-fuchsia-500/10", trend: contacts.length > 0 ? `${campaigns.filter(c=>c.status==="running").length} running` : "Add contacts" },
+    { label: "Active Campaigns", value: activeCampaigns, Icon: Megaphone, color: "text-purple-400 bg-purple-500/10", trend: campaigns.length > 0 ? `${campaigns.length} total` : "No campaigns yet" },
+    { label: "Messages Sent", value: totalSent > 0 ? totalSent.toLocaleString() : "—", Icon: MessageSquare, color: "text-pink-400 bg-pink-500/10", trend: totalSent > 0 ? "all time" : "No messages yet" },
+    { label: "Scheduled Posts", value: pendingPosts > 0 ? pendingPosts : "—", Icon: Clock, color: "text-amber-400 bg-amber-500/10", trend: pendingPosts > 0 ? "upcoming" : "None scheduled" },
+    { label: "Active Funnels", value: funnels.length > 0 ? funnels.length : "—", Icon: GitBranch, color: "text-emerald-400 bg-emerald-500/10", trend: funnels.length > 0 ? "running" : "Build a funnel" },
+    { label: "Today's Leads", value: todayLeads > 0 ? todayLeads : "—", Icon: TrendingUp, color: "text-blue-400 bg-blue-500/10", trend: leads.length > 0 ? `${leads.length} total` : "No leads yet" },
   ];
 
   const QUICK_LINKS = [

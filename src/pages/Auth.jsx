@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
-import { ArrowLeft, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Mail, Smartphone } from "lucide-react";
 import StepEmail from "@/components/auth/StepEmail";
 import StepVerifyOTP from "@/components/auth/StepVerifyOTP";
 import StepSetPassword from "@/components/auth/StepSetPassword";
+import StepPhone from "@/components/auth/StepPhone";
 
 const DASHBOARD = "/dashboard";
 
@@ -22,6 +23,7 @@ export default function Auth() {
   const from = location.state?.from?.pathname || DASHBOARD;
 
   const [mode, setMode] = useState("login"); // "login" | "signup" | "reset"
+  const [channel, setChannel] = useState("email"); // "email" | "phone"
   const [step, setStep] = useState("email"); // "email" | "otp" | "password"
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
@@ -35,6 +37,13 @@ export default function Auth() {
 
   const resetFlow = (newMode) => {
     setMode(newMode);
+    setStep("email");
+    setEmail("");
+    setError("");
+  };
+
+  const switchChannel = (ch) => {
+    setChannel(ch);
     setStep("email");
     setEmail("");
     setError("");
@@ -146,15 +155,39 @@ export default function Auth() {
         <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 backdrop-blur-sm shadow-2xl">
           <div className="text-center mb-5">
             <h2 className="text-base font-bold text-white">{titles[mode][step]}</h2>
-            <p className="text-xs text-slate-400 mt-1">{subtitles[mode][step]}</p>
+            <p className="text-xs text-slate-400 mt-1">
+              {step === "otp" && channel === "phone"
+                ? "Enter the 6-digit code sent to your mobile"
+                : subtitles[mode][step]}
+            </p>
           </div>
 
           {error && (
             <div className="mb-4 p-3 rounded-lg text-xs bg-red-500/10 text-red-400 border border-red-500/20">{error}</div>
           )}
 
+          {/* Channel switcher — only on first step */}
           {step === "email" && (
+            <div className="flex gap-2 mb-4">
+              <button
+                onClick={() => switchChannel("email")}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-semibold border transition-all ${channel === "email" ? "bg-violet-500/20 border-violet-500/50 text-violet-300" : "bg-slate-800 border-slate-700 text-slate-400 hover:text-slate-300"}`}>
+                <Mail className="w-3.5 h-3.5" /> Email
+              </button>
+              <button
+                onClick={() => switchChannel("phone")}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-semibold border transition-all ${channel === "phone" ? "bg-violet-500/20 border-violet-500/50 text-violet-300" : "bg-slate-800 border-slate-700 text-slate-400 hover:text-slate-300"}`}>
+                <Smartphone className="w-3.5 h-3.5" /> Mobile
+              </button>
+            </div>
+          )}
+
+          {step === "email" && channel === "email" && (
             <StepEmail purpose={mode} onNext={(e) => { setEmail(e); setStep("otp"); }} />
+          )}
+
+          {step === "email" && channel === "phone" && (
+            <StepPhone purpose={mode} onNext={(phone) => { setEmail(phone); setStep("otp"); }} />
           )}
 
           {step === "otp" && (
