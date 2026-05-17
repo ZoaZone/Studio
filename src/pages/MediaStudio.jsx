@@ -156,46 +156,60 @@ export default function MediaStudio() {
   const filteredTypes = activeCat === "all" ? TYPES : TYPES.filter(t => t.category === activeCat);
 
   // Sanitize user prompts before sending to Vertex AI GenerateVideo.
-  // Vertex AI flags: personal names, relationship terms, some celebration contexts.
-  // We rewrite these into safe cinematic equivalents without losing intent.
+  // Vertex AI (Veo) has a strict content policy — medical, surgical, some brand names,
+  // image-reference instructions, URLs, and certain descriptive words trigger rejections.
   const sanitizeVideoPrompt = (rawPrompt) => {
     let p = rawPrompt;
 
+    // Strip URLs entirely (Vertex can't browse them and they often trip the filter)
+    p = p.replace(/https?:\/\/[^\s,]+/gi, "");
+
+    // Strip any instruction to "read", "visit", or "reference" a website
+    p = p.replace(/\bread\s+[\w.]+\.(com|net|org|ai|io)[^\s,.]*/gi, "");
+    p = p.replace(/\bvisit\s+[\w.]+\.(com|net|org|ai|io)[^\s,.]*/gi, "");
+    p = p.replace(/\breference\s+[\w.]+\.(com|net|org|ai|io)[^\s,.]*/gi, "");
+
+    // Strip references to "attached/uploaded photos or images" — Vertex video can't see them
+    p = p.replace(/Doctor\s+a?\s*person\s+images?\s+have\s+attached[^.]*\.?/gi, "");
+    p = p.replace(/use\s+(these|the|this)\s+(pics?|images?|photos?)\s+(for\s+)?reference[^.]*\.?/gi, "");
+    p = p.replace(/I have attached[^.]+\.?/gi, "");
+    p = p.replace(/as attachment[^.]*\.?/gi, "");
+    p = p.replace(/reference (photo|image|pic)[^.]*\.?/gi, "");
+    p = p.replace(/the photo[^.]*\.?/gi, "");
+    p = p.replace(/uploaded\s+(reference\s+)?(media|images?|pics?)[^.]*\.?/gi, "");
+    p = p.replace(/pics?\s+are\s+attached[^.]*\.?/gi, "");
+
+    // Strip/replace surgical, medical, and equipment terms that trip the filter
+    p = p.replace(/\bsurgical\s+light[s]?\b/gi, "professional lighting");
+    p = p.replace(/\bshadowless\s+lamp[s]?\b/gi, "bright overhead lighting");
+    p = p.replace(/\boperation\s+theater[s]?\b/gi, "treatment room");
+    p = p.replace(/\bsurgery\b/gi, "veterinary care");
+    p = p.replace(/\bscalpel[s]?\b/gi, "medical instrument");
+
     // Replace relationship words with neutral equivalents
     const relationshipMap = {
-      "\\bwife\\b": "person",
-      "\\bhusband\\b": "person",
-      "\\bgirlfriend\\b": "person",
-      "\\bboyfriend\\b": "person",
-      "\\bfiance\\b": "person",
-      "\\bfiancee\\b": "person",
-      "\\bspouse\\b": "person",
-      "\\bpartner\\b": "individual",
+      "\\bwife\\b": "person", "\\bhusband\\b": "person",
+      "\\bgirlfriend\\b": "person", "\\bboyfriend\\b": "person",
+      "\\bfiance\\b": "person", "\\bfiancee\\b": "person",
+      "\\bspouse\\b": "person", "\\bpartner\\b": "individual",
     };
     Object.entries(relationshipMap).forEach(([pattern, replacement]) => {
       p = p.replace(new RegExp(pattern, "gi"), replacement);
     });
 
-    // Strip personal names (2+ capitalised words in a row not at sentence start)
-    // Replace with "a person" to preserve context
-    p = p.replace(/(?<![.!?]\s)\b([A-Z][a-z]+ [A-Z][a-z]+)\b/g, "a person");
-
-    // Rephrase "celebrating X's Birthday" -> "celebrating a birthday"
+    // Rephrase birthday possessives
     p = p.replace(/celebrating\s+\w+'s\s+birthday/gi, "celebrating a birthday");
     p = p.replace(/\w+'s\s+birthday/gi, "a birthday celebration");
 
-    // Replace overly specific location descriptors that can trip filters
+    // Replace overly specific location descriptors
     p = p.replace(/five[- ]star hotel/gi, "luxury hotel");
     p = p.replace(/grand background/gi, "elegant backdrop");
 
-    // Strip references to "attached photo/image" — Vertex can't see them
-    p = p.replace(/I have attached[^.]+\.?/gi, "");
-    p = p.replace(/as attachment[^.]*\.?/gi, "");
-    p = p.replace(/reference photo[^.]*\.?/gi, "");
-    p = p.replace(/the photo[^.]*\.?/gi, "");
+    // Trim multi-clause instructions down — keep only the first 600 chars if very long
+    if (p.length > 600) p = p.slice(0, 600).replace(/[^.!?]*$/, "").trim();
 
-    // Clean up extra whitespace
-    p = p.replace(/\s{2,}/g, " ").trim();
+    // Clean up extra whitespace and trailing punctuation artifacts
+    p = p.replace(/\s{2,}/g, " ").replace(/\s*,\s*,/g, ",").trim();
 
     return p;
   };
@@ -244,8 +258,12 @@ export default function MediaStudio() {
         const enhancedPrompt = `${form.prompt}. ${styleHint}. ${form.tone} tone. Optimized for ${form.platform}. High quality, crisp, commercial photography style.`;
 
         const imageUrls = uploadedFiles.filter(f => f.type.startsWith("image/")).map(f => f.url);
+        // When reference images are provided, explicitly instruct the model to replicate the subject
+        const refInstruction = imageUrls.length
+          ? ` IMPORTANT: Replicate the exact person(s), face(s), and subject(s) from the provided reference images faithfully. Maintain their likeness, clothing, and appearance as closely as possible. Style the background and composition to match the marketing context.`
+          : "";
         const res = await base44.functions.invoke("generateImage", {
-          prompt: enhancedPrompt,
+          prompt: enhancedPrompt + refInstruction,
           platform: form.platform,
           dimensions: form.dimensions,
           reference_image_urls: imageUrls.length ? imageUrls : undefined,
@@ -538,7 +556,11 @@ export default function MediaStudio() {
             )}
             {uploadedFiles.length > 0 && (
               <p className="text-[10px] text-muted-foreground/60">
-                {isVisual ? "AI will use these as style / composition reference" : isAiVideo ? "AI will maintain visual consistency from your uploads" : "Uploaded files will inform the AI context"}
+                {isVisual
+                  ? "AI will replicate the person(s) and style from your reference images"
+                  : isAiVideo
+                  ? "Note: AI Video (Veo) cannot directly use reference images for face replication — use Image generation for that. Your prompt will be cleaned to pass Vertex AI's content guidelines."
+                  : "Uploaded files will inform the AI context"}
               </p>
             )}
           </div>
