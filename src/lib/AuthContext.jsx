@@ -111,8 +111,11 @@ export const AuthProvider = ({ children }) => {
     base44.auth.logout("/login");
   };
 
+  // BUG-001 FIX: Guard against redirect loop — don't redirect if already on login/auth
   const navigateToLogin = () => {
-    window.location.href = `/auth`;
+    const p = window.location.pathname.toLowerCase();
+    if (p === '/login' || p === '/auth') return; // already there, do nothing
+    window.location.href = '/auth';
   };
 
   return (
