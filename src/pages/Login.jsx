@@ -23,9 +23,18 @@ export default function Login() {
   const [msg, setMsg] = useState("");
 
   // Already logged in → redirect
+  // BUG-001 FIX: Validate token via API before redirecting (prevents loop on expired token).
+  // BUG-011 FIX: Never redirect back to /login or /auth as the destination.
   useEffect(() => {
     const token = localStorage.getItem("base44_access_token");
-    if (token) navigate(from, { replace: true });
+    if (!token) return;
+    const safeFrom = (from && !/\/(login|auth)/i.test(from)) ? from : "/Dashboard";
+    base44.auth.me()
+      .then(() => navigate(safeFrom, { replace: true }))
+      .catch(() => {
+        localStorage.removeItem("base44_access_token");
+        localStorage.removeItem("token");
+      });
   }, []);
 
   const handleAuth = async (e) => {
