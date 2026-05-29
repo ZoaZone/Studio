@@ -2,10 +2,10 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 
 /**
  * sendBetaInvite
- * Runs inside Marketer app (69c3c2f5acaefc3a7afad5fd).
- * 1. Creates BetaInvite record via asServiceRole
- * 2. Sends branded invite email: Base44 built-in → Resend → SendGrid
- * No auth.me() — admin guard is on the AdminDashboard frontend.
+ * 1. Creates/updates BetaInvite record
+ * 2. Sends branded invite email via:
+ *    PRIMARY:   Resend (uses onboarding@resend.dev as shared sender if domain not yet verified)
+ *    FALLBACK:  Base44 built-in SendEmail
  */
 
 const APP_URL = 'https://media.aevoice.ai';
@@ -13,7 +13,7 @@ const APP_URL = 'https://media.aevoice.ai';
 const genToken = (): string => {
   const a = new Uint8Array(24);
   crypto.getRandomValues(a);
-  return Array.from(a).map(b => b.toString(16).padStart(2,'0')).join('');
+  return Array.from(a).map(b => b.toString(16).padStart(2, '0')).join('');
 };
 
 const buildHtml = (url: string, note: string, name: string) => `
@@ -55,17 +55,14 @@ const buildHtml = (url: string, note: string, name: string) => `
 </td></tr></table>
 </body></html>`;
 
+const CORS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+};
+
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, {
-      status: 204,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-      },
-    });
-  }
+  if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
 
   try {
     const base44 = createClientFromRequest(req);
@@ -73,123 +70,126 @@ Deno.serve(async (req) => {
     const { email, note = '', invited_by = 'admin', source = 'manual_invite', full_name = '' } = payload;
 
     if (!email) {
-      return Response.json({ error: 'email is required' }, {
-        status: 400, headers: { 'Access-Control-Allow-Origin': '*' },
-      });
+      return Response.json({ error: 'email is required' }, { status: 400, headers: CORS });
     }
 
-    // ── 1. Upsert BetaRequest record ──────────────────────────────────────────
+    // ── 1. Create / update BetaRequest record ─────────────────────────────────
     const token = genToken();
-    const inviteCode = token.slice(0, 6).toUpperCase();
     const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
 
-    const existing = await base44.asServiceRole.entities.BetaRequest.filter({ email });
-    let invite;
-    if (existing && existing.length > 0) {
-      await base44.asServiceRole.entities.BetaRequest.update(existing[0].id, {
-        invite_token: token,
-        invite_expires_at: expiresAt,
-        status: 'approved',
-        invite_sent: true,
-        note: note || existing[0].note || '',
-      });
-      invite = { ...existing[0], id: existing[0].id };
-    } else {
-      invite = await base44.asServiceRole.entities.BetaRequest.create({
-        email,
-        full_name: full_name || '',
-        status: 'approved',
-        note,
-        invite_token: token,
-        invite_expires_at: expiresAt,
-        invite_sent: true,
-      });
-    }
-
-    // Also invite via Base44 auth
+    let inviteRecord: any;
     try {
-      await base44.asServiceRole.users?.inviteUser?.(email, 'user');
-    } catch (e) {
-      console.warn('Base44 inviteUser skipped:', e.message);
+      const existing = await base44.asServiceRole.entities.BetaRequest.filter({ email });
+      if (existing?.length > 0) {
+        await base44.asServiceRole.entities.BetaRequest.update(existing[0].id, {
+          invite_token: token,
+          invite_expires_at: expiresAt,
+          status: 'approved',
+          invite_sent: true,
+          notes: note || existing[0].notes || '',
+        });
+        inviteRecord = existing[0];
+      } else {
+        inviteRecord = await base44.asServiceRole.entities.BetaRequest.create({
+          email,
+          full_name: full_name || '',
+          status: 'approved',
+          notes: note,
+          invite_token: token,
+          invite_expires_at: expiresAt,
+          invite_sent: true,
+        });
+      }
+    } catch (dbErr: any) {
+      console.error('DB error (non-fatal):', dbErr.message);
+      inviteRecord = { id: 'unknown' };
     }
 
-    // ── 2. Build email content ────────────────────────────────────────────────
+    // Also create a BetaInvite record for token-based onboarding
+    try {
+      await base44.asServiceRole.entities.BetaInvite.create({
+        email,
+        token,
+        invited_by,
+        note,
+        source,
+        status: 'pending',
+        expires_at: expiresAt,
+      });
+    } catch (e: any) {
+      console.warn('BetaInvite create skipped:', e.message);
+    }
+
+    // ── 2. Build email ────────────────────────────────────────────────────────
     const inviteUrl = `${APP_URL}/invite/${token}`;
-    // inviteCode already defined above
     const firstName = full_name ? full_name.split(' ')[0] : '';
     const html = buildHtml(inviteUrl, note, firstName);
-    const text = `Hi${firstName ? ` ${firstName}` : ''}!\n\nYou're invited to media.aevoice.ai Beta — full Agency-tier access, free.\n\nClaim your access:\n${inviteUrl}\n\nExpires in 30 days.\n\n— The media.aevoice.ai Team`;
     const subject = `🎉 You're personally invited — Free Beta Access to media.aevoice.ai`;
+    const text = `Hi${firstName ? ` ${firstName}` : ''}!\n\nYou've been personally selected for beta access to media.aevoice.ai — full Agency-tier, free for 1 year.\n\nClaim your access here:\n${inviteUrl}\n\nLink expires in 30 days.\n\n— The media.aevoice.ai Team`;
 
-    // ── 3. Send email: Resend → SendGrid → Base44 built-in ───────────────────
+    // ── 3. Send via Resend ────────────────────────────────────────────────────
     let provider = 'none';
+    let emailError = '';
 
-    // PRIMARY: Resend
-    const resendKey = Deno.env.get('RESEND_API_KEY');
-    if (resendKey) {
-      const fromEmail = (Deno.env.get('RESEND_FROM_EMAIL') || 'hello@media.aevoice.ai').trim();
-      // If already contains <>, use as-is; otherwise wrap it
-      const fromField = fromEmail.includes('<') ? fromEmail : `media.aevoice.ai <${fromEmail}>`;
-      const res = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ from: fromField, to: [email], subject, text, html }),
-      });
-      const resBody = await res.json().catch(() => ({}));
-      if (res.ok) {
-        provider = 'resend';
-      } else {
-        console.warn('Resend failed, falling back:', JSON.stringify(resBody));
+    const resendKey = Deno.env.get('RESEND_API_KEY') || '';
+
+    if (resendKey && resendKey.startsWith('re_')) {
+      // Try custom domain first
+      const customFrom = Deno.env.get('RESEND_FROM_EMAIL') || '';
+      const fromCandidates: string[] = [];
+
+      if (customFrom && customFrom.includes('@') && !customFrom.includes('google') && !customFrom.includes('apps.')) {
+        fromCandidates.push(
+          customFrom.includes('<') ? customFrom : `media.aevoice.ai <${customFrom}>`
+        );
       }
-    }
+      // Always include shared domain as reliable fallback
+      fromCandidates.push('media.aevoice.ai <onboarding@resend.dev>');
 
-    // SECONDARY: SendGrid
-    if (provider === 'none') {
-      const sgKey = Deno.env.get('SENDGRID_API_KEY');
-      if (sgKey) {
-        const sgFrom = Deno.env.get('SENDGRID_FROM_EMAIL') || 'noreply@aevoice.ai';
-        const sgRes = await fetch('https://api.sendgrid.com/v3/mail/send', {
+      for (const fromField of fromCandidates) {
+        const res = await fetch('https://api.resend.com/emails', {
           method: 'POST',
-          headers: { Authorization: `Bearer ${sgKey}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            personalizations: [{ to: [{ email }] }],
-            from: { email: sgFrom, name: 'media.aevoice.ai' },
-            subject,
-            content: [{ type: 'text/plain', value: text }, { type: 'text/html', value: html }],
-          }),
+          headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ from: fromField, to: [email], subject, html, text }),
         });
-        if (sgRes.ok) {
-          provider = 'sendgrid';
+        const body = await res.json().catch(() => ({}));
+        console.log(`Resend attempt (from: ${fromField}):`, res.status, JSON.stringify(body));
+
+        if (res.ok && body.id) {
+          provider = `resend`;
+          console.log('✅ Email sent via Resend, id:', body.id, 'from:', fromField);
+          break;
         } else {
-          console.error('SendGrid failed:', await sgRes.text());
+          emailError = body.message || JSON.stringify(body);
         }
       }
+    } else {
+      console.warn('No valid RESEND_API_KEY found (must start with re_). Got:', resendKey.slice(0, 20));
     }
 
-    // TERTIARY: Base44 built-in
+    // ── 4. Fallback: Base44 built-in SendEmail ────────────────────────────────
     if (provider === 'none') {
       try {
-        await base44.asServiceRole.integrations.Core.SendEmail({ to: email, subject, body: text });
-        provider = 'base44';
-      } catch (e) {
-        console.warn('Base44 SendEmail failed:', e.message);
+        await base44.integrations.Core.SendEmail({ to: email, subject, body: text });
+        provider = 'base44_builtin';
+        console.log('✅ Email sent via Base44 built-in');
+      } catch (e: any) {
+        console.error('Base44 SendEmail failed:', e.message);
+        emailError += ' | Base44: ' + e.message;
       }
     }
 
-    if (provider === 'none') {
-      console.warn('All email providers failed — invite record created but email not sent');
-    }
-
-    return Response.json(
-      { success: true, email, invite_id: invite.id, invite_url: inviteUrl, invite_code: inviteCode, provider },
-      { headers: { 'Access-Control-Allow-Origin': '*' } }
-    );
+    return Response.json({
+      success: true,
+      email,
+      invite_url: inviteUrl,
+      invite_id: inviteRecord?.id,
+      provider,
+      email_error: provider === 'none' ? emailError : undefined,
+    }, { headers: CORS });
 
   } catch (error: any) {
-    console.error('sendBetaInvite error:', error);
-    return Response.json(
-      { error: error.message },
-      { status: 500, headers: { 'Access-Control-Allow-Origin': '*' } }
-    );
+    console.error('sendBetaInvite fatal error:', error);
+    return Response.json({ error: error.message }, { status: 500, headers: CORS });
   }
 });
