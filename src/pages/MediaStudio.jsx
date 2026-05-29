@@ -129,6 +129,20 @@ export default function MediaStudio() {
   const [uploadedFiles, setUploadedFiles] = useState([]); // [{name, url, previewUrl, type}]
   const [uploading, setUploading] = useState(false);
 
+  const uploadFileToStorage = async (file) => {
+    // Use FormData POST to Base44 file upload endpoint
+    const formData = new FormData();
+    formData.append("file", file);
+    const res = await fetch("/api/upload", { method: "POST", body: formData });
+    if (res.ok) {
+      const data = await res.json();
+      return data.file_url || data.url;
+    }
+    // Fallback: use Base44 SDK UploadFile integration
+    const sdkRes = await base44.integrations.Core.UploadFile({ file });
+    return sdkRes?.file_url || sdkRes?.url;
+  };
+
   const handleFileUpload = async (e) => {
     const files = Array.from(e.target.files);
     if (!files.length) return;
@@ -136,8 +150,14 @@ export default function MediaStudio() {
     const results = [];
     for (const file of files) {
       const previewUrl = URL.createObjectURL(file);
-      const res = await base44.integrations.Core.UploadFile({ file });
-      results.push({ name: file.name, url: res.file_url, previewUrl, type: file.type });
+      try {
+        const url = await uploadFileToStorage(file);
+        results.push({ name: file.name, url: url || previewUrl, previewUrl, type: file.type });
+      } catch (err) {
+        // If upload fails, still add with object URL for preview (won't work as AI reference)
+        console.warn("File upload failed, using local preview:", err);
+        results.push({ name: file.name, url: null, previewUrl, type: file.type, uploadFailed: true });
+      }
     }
     setUploadedFiles(prev => [...prev, ...results]);
     setUploading(false);
@@ -226,17 +246,25 @@ export default function MediaStudio() {
         const numClips = durObj.clips;
         const clipSec = numClips > 1 ? 8 : form.videoSeconds;
         const audioHint = form.audioNote ? ` Audio direction: ${form.audioNote}.` : "";
-        const refHint = uploadedFiles.length ? ` Visual reference provided — maintain the style, colors, and subjects from the uploaded reference media.` : "";
+        const refImageUrls = uploadedFiles.filter(f => f.type?.startsWith("image/") && f.url && !f.uploadFailed).map(f => f.url);
+        const refHint = refImageUrls.length
+          ? ` IMPORTANT: Reference images provided. Replicate the exact person(s), face(s), appearance, clothing and visual identity from the reference images faithfully throughout the entire video. The subject should appear in this video as shown in the reference.`
+          : uploadedFiles.length ? ` Style reference provided. Match the visual style, mood, colors and aesthetic from the reference material.` : "";
 
         let clipUrls = [];
         for (let i = 0; i < numClips; i++) {
           const sceneHint = numClips > 1 ? ` Scene ${i + 1} of ${numClips}.` : "";
           const safePrompt = sanitizeVideoPrompt(form.prompt);
           const videoPrompt = `${safePrompt}.${sceneHint} Platform: ${form.platform}. Tone: ${form.tone}. Style: cinematic, high quality, professional marketing video. Seamlessly continues the same visual story.${audioHint}${refHint}`;
+          // Pass uploaded reference images to video generation for subject replication
+          const refImageUrls = uploadedFiles
+            .filter(f => f.type?.startsWith("image/") && f.url && !f.uploadFailed)
+            .map(f => f.url);
           const res = await base44.integrations.Core.GenerateVideo({
             prompt: videoPrompt,
             duration: clipSec,
             aspect_ratio: form.videoAspect,
+            existing_image_urls: refImageUrls.length ? refImageUrls : undefined,
           });
           if (res?.url) clipUrls.push(res.url);
         }
