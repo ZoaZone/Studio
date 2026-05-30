@@ -1,39 +1,46 @@
 {
-  "name": "BetaRequest",
+  "name": "LeadCapture",
   "type": "object",
   "properties": {
+    "client_id": {
+      "type": "string"
+    },
+    "funnel_id": {
+      "type": "string"
+    },
     "full_name": {
       "type": "string"
     },
     "email": {
       "type": "string"
     },
-    "company": {
+    "phone": {
       "type": "string"
     },
-    "use_case": {
+    "whatsapp": {
       "type": "string"
     },
-    "status": {
+    "source": {
       "type": "string",
       "enum": [
-        "pending",
-        "approved",
-        "rejected"
-      ],
-      "default": "pending"
+        "website",
+        "social",
+        "ad",
+        "qr_code",
+        "referral",
+        "manual"
+      ]
     },
-    "note": {
+    "utm_source": {
       "type": "string"
     },
-    "invite_sent": {
-      "type": "boolean",
-      "default": false
-    },
-    "invite_token": {
+    "utm_campaign": {
       "type": "string"
     },
-    "invite_expires_at": {
+    "form_data": {
+      "type": "string"
+    },
+    "captured_at": {
       "type": "string",
       "format": "date-time"
     },
@@ -43,7 +50,6 @@
     }
   },
   "required": [
-    "full_name",
-    "email"
+    "full_name"
   ]
 }
