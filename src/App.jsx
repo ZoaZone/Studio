@@ -1,6 +1,7 @@
 import { Toaster } from "@/components/ui/toaster"
 import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClientInstance } from '@/lib/query-client'
+import AdminLogin from './pages/AdminLogin';
 import { BrowserRouter as Router, Route, Routes, useLocation, Navigate } from 'react-router-dom';
 import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
@@ -74,7 +75,8 @@ const AuthenticatedApp = () => {
       <Route path="/Home" element={<Home />} />
       <Route path="/pricing" element={<Pricing />} />
       <Route path="/Pricing" element={<Pricing />} />
-      <Route path="/login" element={<Login />} />
+      <Route path="/admin/login" element={<AdminLogin />} />
+        <Route path="/login" element={<Login />} />
       <Route path="/auth" element={<Auth />} />
       <Route path="/onboarding" element={<PostPaymentOnboarding />} />
       <Route path="/lead-capture" element={<LeadCapturePage />} />
