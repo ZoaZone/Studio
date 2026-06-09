@@ -1,11 +1,12 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useOutletContext } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import {
-  Building2, Plus, Palette, Globe, Mail, Phone, Users, Mic2,
-  Pencil, Trash2, CheckCircle2, Star, X, Loader2, ChevronRight,
-  Briefcase, Tag, Zap
+  Building2, Plus, Globe, Mail, Phone, Users, Mic2, Pencil, Trash2,
+  CheckCircle2, Star, X, Loader2, Zap, Upload, ImagePlus, Share2,
+  Instagram, Link2, Palette, Tag, AlignLeft, ChevronRight, ChevronDown,
+  Eye, EyeOff
 } from "lucide-react";
 
 const INDUSTRIES = [
@@ -20,43 +21,84 @@ const BRAND_VOICES = [
   "Empathetic & Supportive","Educational & Informative"
 ];
 
+const PLATFORMS = [
+  { id:"instagram", label:"Instagram", color:"from-pink-500 to-rose-600" },
+  { id:"facebook",  label:"Facebook",  color:"from-blue-500 to-blue-700" },
+  { id:"tiktok",    label:"TikTok",    color:"from-gray-700 to-gray-900" },
+  { id:"linkedin",  label:"LinkedIn",  color:"from-sky-600 to-blue-800" },
+  { id:"youtube",   label:"YouTube",   color:"from-red-500 to-red-700" },
+  { id:"twitter_x", label:"Twitter/X", color:"from-zinc-600 to-zinc-900" },
+  { id:"whatsapp",  label:"WhatsApp",  color:"from-green-500 to-emerald-600" },
+  { id:"pinterest", label:"Pinterest", color:"from-rose-600 to-red-700" },
+];
+
 const TIER_LIMITS = { starter: 1, pro: 3, agency: 10 };
+
+const STEPS = ["Details", "Colors & Voice", "Social Accounts", "Review"];
+
+const inp = "w-full bg-background border border-border rounded-xl px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-fuchsia-500/70 transition";
+const lbl = "block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5";
 
 export default function BrandManager() {
   const { user, userTier = "starter" } = useOutletContext() || {};
   const qc = useQueryClient();
+  const logoRef = useRef();
+
   const [showForm, setShowForm] = useState(false);
+  const [formStep, setFormStep] = useState(0);
   const [editing, setEditing] = useState(null);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({
-    name: "", tagline: "", industry: "", logo_url: "", primary_color: "#7c3aed",
-    secondary_color: "#a855f7", accent_color: "#ec4899", brand_voice: "",
-    target_audience: "", website: "", email: "", phone: ""
-  });
+  const [uploading, setUploading] = useState(false);
+  const [expandedId, setExpandedId] = useState(null);
+  const [showPassword, setShowPassword] = useState({});
+
+  const emptyForm = {
+    name:"", tagline:"", industry:"", logo_url:"", logo_file_url:"",
+    primary_color:"#7c3aed", secondary_color:"#a855f7", accent_color:"#ec4899",
+    brand_voice:"", target_audience:"", website:"", email:"", phone:""
+  };
+  const [form, setForm] = useState(emptyForm);
+
+  // Social accounts form for the brand
+  const [newAccount, setNewAccount] = useState({ platform:"instagram", account_name:"", username:"", password:"", access_token:"", connection_method:"credentials" });
+  const [addingAccount, setAddingAccount] = useState(false);
+  const [savingAccount, setSavingAccount] = useState(false);
 
   const { data: brands = [], isLoading } = useQuery({
-    queryKey: ["brands", user?.id],
+    queryKey: ["brands"],
     queryFn: () => base44.entities.Brand.list("-created_date", 20),
-    enabled: !!user,
+  });
+
+  const { data: allAccounts = [] } = useQuery({
+    queryKey: ["social_accounts"],
+    queryFn: () => base44.entities.SocialAccount.list("-created_date", 100),
   });
 
   const maxBrands = TIER_LIMITS[userTier] || 1;
   const canAddMore = brands.length < maxBrands;
 
   const openNew = () => {
-    setEditing(null);
-    setForm({ name:"",tagline:"",industry:"",logo_url:"",primary_color:"#7c3aed",secondary_color:"#a855f7",accent_color:"#ec4899",brand_voice:"",target_audience:"",website:"",email:"",phone:"" });
-    setShowForm(true);
+    setEditing(null); setForm(emptyForm); setFormStep(0); setShowForm(true);
   };
 
   const openEdit = (b) => {
     setEditing(b.id);
-    setForm({ name:b.name||"",tagline:b.tagline||"",industry:b.industry||"",logo_url:b.logo_url||"",primary_color:b.primary_color||"#7c3aed",secondary_color:b.secondary_color||"#a855f7",accent_color:b.accent_color||"#ec4899",brand_voice:b.brand_voice||"",target_audience:b.target_audience||"",website:b.website||"",email:b.email||"",phone:b.phone||"" });
-    setShowForm(true);
+    setForm({ name:b.name||"", tagline:b.tagline||"", industry:b.industry||"", logo_url:b.logo_url||"", logo_file_url:b.logo_file_url||"", primary_color:b.primary_color||"#7c3aed", secondary_color:b.secondary_color||"#a855f7", accent_color:b.accent_color||"#ec4899", brand_voice:b.brand_voice||"", target_audience:b.target_audience||"", website:b.website||"", email:b.email||"", phone:b.phone||"" });
+    setFormStep(0); setShowForm(true);
+  };
+
+  const uploadLogo = async (file) => {
+    if (!file) return;
+    setUploading(true);
+    try {
+      const url = await base44.storage.uploadFile(file);
+      setForm(f => ({ ...f, logo_file_url: url, logo_url: url }));
+    } catch (e) { alert("Logo upload failed: " + e.message); }
+    setUploading(false);
   };
 
   const save = async () => {
-    if (!form.name) return;
+    if (!form.name.trim()) { alert("Brand name is required"); return; }
     setSaving(true);
     try {
       if (editing) {
@@ -66,197 +108,427 @@ export default function BrandManager() {
       }
       qc.invalidateQueries(["brands"]);
       setShowForm(false);
-    } catch (e) { alert(e.message); }
+    } catch (e) { alert("Save failed: " + e.message); }
     setSaving(false);
   };
 
   const deleteBrand = async (id) => {
-    if (!confirm("Delete this brand? This cannot be undone.")) return;
+    if (!confirm("Delete this brand?")) return;
     await base44.entities.Brand.delete(id);
     qc.invalidateQueries(["brands"]);
   };
 
+  const saveAccount = async (brandId) => {
+    if (!newAccount.account_name.trim()) { alert("Account name is required"); return; }
+    setSavingAccount(true);
+    try {
+      await base44.entities.SocialAccount.create({ ...newAccount, brand_id: brandId, status: "active" });
+      qc.invalidateQueries(["social_accounts"]);
+      setNewAccount({ platform:"instagram", account_name:"", username:"", password:"", access_token:"", connection_method:"credentials" });
+      setAddingAccount(false);
+    } catch (e) { alert(e.message); }
+    setSavingAccount(false);
+  };
+
+  const removeAccount = async (id) => {
+    await base44.entities.SocialAccount.delete(id);
+    qc.invalidateQueries(["social_accounts"]);
+  };
+
+  const brandAccounts = (brandId) => allAccounts.filter(a => a.brand_id === brandId);
+
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
+
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
           <h1 className="text-2xl font-black text-foreground flex items-center gap-2">
             <Building2 className="w-6 h-6 text-fuchsia-400" /> Brand Manager
           </h1>
-          <p className="text-muted-foreground text-sm mt-0.5">
-            Manage your brands — {brands.length}/{maxBrands} used on <span className="capitalize text-fuchsia-400">{userTier}</span> plan
+          <p className="text-sm text-muted-foreground mt-0.5">
+            {brands.length}/{maxBrands} brands · <span className="capitalize text-fuchsia-400">{userTier}</span> plan
           </p>
         </div>
-        <button
-          onClick={openNew}
-          disabled={!canAddMore}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-fuchsia-600 to-purple-600 text-white font-bold text-sm hover:opacity-90 transition disabled:opacity-40 disabled:cursor-not-allowed"
-        >
-          <Plus className="w-4 h-4" /> Add Brand
+        <button onClick={openNew} disabled={!canAddMore}
+          className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-fuchsia-600 to-purple-600 text-white font-bold text-sm hover:opacity-90 transition disabled:opacity-40 disabled:cursor-not-allowed">
+          <Plus className="w-4 h-4" /> New Brand
         </button>
       </div>
 
       {!canAddMore && (
-        <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 flex items-start gap-3">
+        <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 flex gap-3">
           <Zap className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
-          <div>
-            <p className="text-amber-300 font-semibold text-sm">Brand limit reached</p>
-            <p className="text-amber-400/70 text-xs mt-0.5">
-              Your {userTier} plan supports up to {maxBrands} brand{maxBrands>1?"s":""}. Upgrade to Pro (3 brands) or Agency (10 brands) for more.
-            </p>
-          </div>
+          <p className="text-amber-300 text-sm">Brand limit reached. Upgrade to Pro (3) or Agency (10) for more.</p>
         </div>
       )}
 
-      {/* Brand Grid */}
+      {/* Brand list */}
       {isLoading ? (
         <div className="flex justify-center py-20"><Loader2 className="w-8 h-8 animate-spin text-fuchsia-400" /></div>
       ) : brands.length === 0 ? (
         <div className="text-center py-20 border-2 border-dashed border-white/10 rounded-2xl">
-          <Building2 className="w-12 h-12 mx-auto text-muted-foreground/40 mb-4" />
-          <p className="text-muted-foreground font-medium">No brands yet</p>
-          <p className="text-muted-foreground/60 text-sm mt-1">Create your first brand to start publishing campaigns</p>
-          <button onClick={openNew} className="mt-4 px-5 py-2 rounded-xl bg-fuchsia-600 text-white text-sm font-bold hover:bg-fuchsia-500 transition">
-            + Create Brand
+          <Building2 className="w-14 h-14 mx-auto text-muted-foreground/20 mb-4" />
+          <p className="text-foreground font-bold text-lg">No brands yet</p>
+          <p className="text-muted-foreground text-sm mt-1 mb-5">Create your first brand to start creating campaigns</p>
+          <button onClick={openNew} className="px-5 py-2.5 rounded-xl bg-fuchsia-600 text-white font-bold text-sm hover:opacity-90">
+            Create Brand
           </button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {brands.map(b => (
-            <div key={b.id} className="bg-card border border-white/10 rounded-2xl overflow-hidden hover:border-white/20 transition group">
-              {/* Color bar */}
-              <div className="h-2 w-full" style={{ background: `linear-gradient(90deg, ${b.primary_color||"#7c3aed"}, ${b.secondary_color||"#a855f7"}, ${b.accent_color||"#ec4899"})` }} />
-              <div className="p-5">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    {b.logo_url ? (
-                      <img src={b.logo_url} className="w-12 h-12 rounded-xl object-cover border border-white/10" />
-                    ) : (
-                      <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl font-black text-white" style={{ background: `linear-gradient(135deg, ${b.primary_color||"#7c3aed"}, ${b.secondary_color||"#a855f7"})` }}>
-                        {(b.name||"B")[0].toUpperCase()}
+        <div className="space-y-4">
+          {brands.map(b => {
+            const accs = brandAccounts(b.id);
+            const isExpanded = expandedId === b.id;
+            return (
+              <div key={b.id} className="bg-card border border-border rounded-2xl overflow-hidden">
+                {/* Brand header row */}
+                <div className="flex items-center gap-4 p-5">
+                  {/* Logo / Color swatch */}
+                  <div className="w-14 h-14 rounded-xl flex-shrink-0 flex items-center justify-center overflow-hidden border border-white/10"
+                    style={{ background: b.primary_color || "#7c3aed" }}>
+                    {b.logo_url
+                      ? <img src={b.logo_url} alt={b.name} className="w-full h-full object-contain" />
+                      : <span className="text-2xl font-black text-white">{b.name?.[0]?.toUpperCase()}</span>
+                    }
+                  </div>
+                  {/* Info */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="font-bold text-foreground text-lg leading-none">{b.name}</p>
+                      {b.industry && <span className="text-xs px-2 py-0.5 rounded-full bg-fuchsia-500/10 text-fuchsia-400">{b.industry}</span>}
+                    </div>
+                    {b.tagline && <p className="text-muted-foreground text-sm mt-0.5 truncate">{b.tagline}</p>}
+                    <div className="flex items-center gap-3 mt-2">
+                      {/* Color swatches */}
+                      <div className="flex gap-1">
+                        {[b.primary_color, b.secondary_color, b.accent_color].map((c, i) =>
+                          c ? <div key={i} className="w-4 h-4 rounded-full border border-white/20" style={{ background: c }} /> : null
+                        )}
                       </div>
-                    )}
-                    <div>
-                      <h3 className="font-bold text-foreground">{b.name}</h3>
-                      {b.tagline && <p className="text-muted-foreground text-xs mt-0.5">{b.tagline}</p>}
-                      {b.industry && <span className="inline-block mt-1 text-xs px-2 py-0.5 rounded-full bg-white/5 text-muted-foreground">{b.industry}</span>}
+                      <span className="text-xs text-muted-foreground">{accs.length} account{accs.length !== 1 ? "s" : ""} connected</span>
                     </div>
                   </div>
-                  <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition">
-                    <button onClick={() => openEdit(b)} className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-muted-foreground hover:text-white transition">
+                  {/* Actions */}
+                  <div className="flex gap-2 flex-shrink-0">
+                    <button onClick={() => openEdit(b)} className="p-2 rounded-lg bg-white/5 hover:bg-white/10 text-muted-foreground hover:text-white transition">
                       <Pencil className="w-4 h-4" />
                     </button>
-                    <button onClick={() => deleteBrand(b.id)} className="p-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 transition">
+                    <button onClick={() => deleteBrand(b.id)} className="p-2 rounded-lg bg-red-500/5 hover:bg-red-500/15 text-red-400 transition">
                       <Trash2 className="w-4 h-4" />
+                    </button>
+                    <button onClick={() => setExpandedId(isExpanded ? null : b.id)}
+                      className="p-2 rounded-lg bg-white/5 hover:bg-white/10 text-muted-foreground hover:text-white transition">
+                      {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
                     </button>
                   </div>
                 </div>
 
-                <div className="mt-4 grid grid-cols-2 gap-2 text-xs text-muted-foreground">
-                  {b.website && <div className="flex items-center gap-1.5"><Globe className="w-3 h-3" /><span className="truncate">{b.website}</span></div>}
-                  {b.email && <div className="flex items-center gap-1.5"><Mail className="w-3 h-3" /><span className="truncate">{b.email}</span></div>}
-                  {b.target_audience && <div className="flex items-center gap-1.5 col-span-2"><Users className="w-3 h-3" /><span className="truncate">{b.target_audience}</span></div>}
-                  {b.brand_voice && <div className="flex items-center gap-1.5 col-span-2"><Mic2 className="w-3 h-3" /><span className="truncate">{b.brand_voice}</span></div>}
-                </div>
+                {/* Expanded — social accounts */}
+                {isExpanded && (
+                  <div className="border-t border-border p-5 space-y-4 bg-white/[0.02]">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-bold text-foreground flex items-center gap-2">
+                        <Share2 className="w-4 h-4 text-fuchsia-400" /> Social Accounts for {b.name}
+                      </p>
+                      <button onClick={() => setAddingAccount(!addingAccount)}
+                        className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg bg-fuchsia-600/20 text-fuchsia-400 hover:bg-fuchsia-600/30 transition">
+                        <Plus className="w-3 h-3" /> Add Account
+                      </button>
+                    </div>
 
-                <div className="mt-3 flex items-center gap-2">
-                  <div className="flex gap-1.5">
-                    {[b.primary_color, b.secondary_color, b.accent_color].filter(Boolean).map((c,i) => (
-                      <div key={i} className="w-5 h-5 rounded-full border border-white/20" style={{ background: c }} title={c} />
-                    ))}
+                    {/* Connected accounts list */}
+                    {accs.length === 0 && !addingAccount && (
+                      <p className="text-xs text-muted-foreground text-center py-4">No social accounts linked yet. Add one to start posting.</p>
+                    )}
+                    {accs.length > 0 && (
+                      <div className="grid sm:grid-cols-2 gap-2">
+                        {accs.map(a => {
+                          const plat = PLATFORMS.find(p => p.id === a.platform);
+                          return (
+                            <div key={a.id} className="flex items-center gap-3 p-3 rounded-xl bg-white/5 border border-white/10">
+                              <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${plat?.color || "from-gray-500 to-gray-700"} flex items-center justify-center flex-shrink-0`}>
+                                <span className="text-xs font-black text-white">{a.platform?.[0]?.toUpperCase()}</span>
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs font-bold text-foreground">{a.account_name}</p>
+                                <p className="text-xs text-muted-foreground">{plat?.label} {a.username ? `· @${a.username}` : ""}</p>
+                              </div>
+                              <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400">Active</span>
+                              <button onClick={() => removeAccount(a.id)} className="p-1 rounded hover:bg-red-500/10 text-muted-foreground hover:text-red-400 transition">
+                                <X className="w-3 h-3" />
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {/* Add account form */}
+                    {addingAccount && (
+                      <div className="bg-background border border-border rounded-xl p-4 space-y-3">
+                        <p className="text-xs font-bold text-foreground">Link a Social Account</p>
+                        {/* Platform pills */}
+                        <div className="flex flex-wrap gap-2">
+                          {PLATFORMS.map(p => (
+                            <button key={p.id} onClick={() => setNewAccount(a => ({ ...a, platform: p.id }))}
+                              className={`px-3 py-1 rounded-full text-xs font-bold transition ${newAccount.platform === p.id ? "bg-fuchsia-600 text-white" : "bg-white/5 text-muted-foreground hover:bg-white/10"}`}>
+                              {p.label}
+                            </button>
+                          ))}
+                        </div>
+                        {/* Connection method */}
+                        <div className="grid grid-cols-3 gap-2">
+                          {[{id:"credentials",icon:"🔑",l:"Login"},{id:"api",icon:"🔌",l:"API Token"},{id:"webhook",icon:"🔗",l:"Webhook"}].map(m => (
+                            <button key={m.id} onClick={() => setNewAccount(a => ({ ...a, connection_method: m.id }))}
+                              className={`py-2 rounded-xl border text-center text-xs font-bold transition ${newAccount.connection_method === m.id ? "border-fuchsia-500 bg-fuchsia-500/10 text-fuchsia-300" : "border-white/10 text-muted-foreground hover:border-white/20"}`}>
+                              {m.icon} {m.l}
+                            </button>
+                          ))}
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className={lbl}>Display Name *</label>
+                            <input value={newAccount.account_name} onChange={e => setNewAccount(a => ({ ...a, account_name: e.target.value }))} placeholder="My Instagram Page" className={inp} />
+                          </div>
+                          <div>
+                            <label className={lbl}>Username / Handle</label>
+                            <input value={newAccount.username} onChange={e => setNewAccount(a => ({ ...a, username: e.target.value }))} placeholder="@yourhandle" className={inp} />
+                          </div>
+                        </div>
+                        {newAccount.connection_method === "credentials" && (
+                          <div className="relative">
+                            <label className={lbl}>Password</label>
+                            <input type={showPassword[b.id] ? "text" : "password"} value={newAccount.password} onChange={e => setNewAccount(a => ({ ...a, password: e.target.value }))} placeholder="Account password" className={inp + " pr-10"} />
+                            <button type="button" onClick={() => setShowPassword(p => ({ ...p, [b.id]: !p[b.id] }))} className="absolute right-3 bottom-2.5 text-muted-foreground">
+                              {showPassword[b.id] ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                            </button>
+                          </div>
+                        )}
+                        {newAccount.connection_method === "api" && (
+                          <div>
+                            <label className={lbl}>Access Token</label>
+                            <input type="password" value={newAccount.access_token} onChange={e => setNewAccount(a => ({ ...a, access_token: e.target.value }))} placeholder="Paste API token" className={inp} />
+                          </div>
+                        )}
+                        <div className="flex gap-2 justify-end">
+                          <button onClick={() => setAddingAccount(false)} className="px-3 py-2 rounded-xl bg-white/5 text-muted-foreground text-xs hover:bg-white/10">Cancel</button>
+                          <button onClick={() => saveAccount(b.id)} disabled={savingAccount}
+                            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-fuchsia-600 text-white text-xs font-bold hover:opacity-90 disabled:opacity-50">
+                            {savingAccount ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle2 className="w-3 h-3" />} Save Account
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  <span className="text-xs text-muted-foreground ml-auto">Brand colors</span>
-                </div>
+                )}
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
-      {/* Modal */}
+      {/* ── CREATE / EDIT MODAL ──────────────────────────────────────────────── */}
       {showForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-          <div className="bg-[#111118] border border-white/10 rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-[#1a1a2e] border border-white/10 rounded-2xl w-full max-w-2xl shadow-2xl my-4">
+            {/* Modal header */}
             <div className="flex items-center justify-between p-6 border-b border-white/10">
-              <h2 className="text-lg font-black text-foreground">{editing ? "Edit Brand" : "New Brand"}</h2>
-              <button onClick={() => setShowForm(false)} className="p-2 rounded-lg hover:bg-white/5 text-muted-foreground"><X className="w-5 h-5" /></button>
-            </div>
-            <div className="p-6 space-y-4">
-              {/* Basic */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="md:col-span-2">
-                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 block">Brand Name *</label>
-                  <input value={form.name} onChange={e=>setForm({...form,name:e.target.value})} placeholder="e.g. Zoa Zone" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-foreground focus:outline-none focus:border-fuchsia-500" />
-                </div>
-                <div>
-                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 block">Tagline</label>
-                  <input value={form.tagline} onChange={e=>setForm({...form,tagline:e.target.value})} placeholder="Your brand tagline" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-foreground focus:outline-none focus:border-fuchsia-500" />
-                </div>
-                <div>
-                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 block">Industry</label>
-                  <select value={form.industry} onChange={e=>setForm({...form,industry:e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-foreground focus:outline-none focus:border-fuchsia-500">
-                    <option value="">Select industry</option>
-                    {INDUSTRIES.map(i=><option key={i} value={i}>{i}</option>)}
-                  </select>
-                </div>
-              </div>
-
-              {/* Colors */}
               <div>
-                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 block">Brand Colors</label>
-                <div className="flex gap-4">
-                  {[["primary_color","Primary"],["secondary_color","Secondary"],["accent_color","Accent"]].map(([k,l])=>(
-                    <div key={k} className="flex items-center gap-2">
-                      <input type="color" value={form[k]} onChange={e=>setForm({...form,[k]:e.target.value})} className="w-10 h-10 rounded-lg cursor-pointer border-0 bg-transparent" />
-                      <span className="text-xs text-muted-foreground">{l}</span>
-                    </div>
-                  ))}
-                </div>
+                <h2 className="text-lg font-black text-white">{editing ? "Edit Brand" : "Create New Brand"}</h2>
+                <p className="text-xs text-slate-400 mt-0.5">{STEPS[formStep]} — Step {formStep+1} of {STEPS.length}</p>
               </div>
-
-              {/* Voice & Audience */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 block">Brand Voice</label>
-                  <select value={form.brand_voice} onChange={e=>setForm({...form,brand_voice:e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-foreground focus:outline-none focus:border-fuchsia-500">
-                    <option value="">Select tone</option>
-                    {BRAND_VOICES.map(v=><option key={v} value={v}>{v}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 block">Target Audience</label>
-                  <input value={form.target_audience} onChange={e=>setForm({...form,target_audience:e.target.value})} placeholder="e.g. Women 25–45 interested in wellness" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-foreground focus:outline-none focus:border-fuchsia-500" />
-                </div>
-              </div>
-
-              {/* Contact */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 block">Website</label>
-                  <input value={form.website} onChange={e=>setForm({...form,website:e.target.value})} placeholder="https://..." className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-foreground focus:outline-none focus:border-fuchsia-500" />
-                </div>
-                <div>
-                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 block">Brand Email</label>
-                  <input value={form.email} onChange={e=>setForm({...form,email:e.target.value})} placeholder="hello@brand.com" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-foreground focus:outline-none focus:border-fuchsia-500" />
-                </div>
-                <div>
-                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 block">Phone</label>
-                  <input value={form.phone} onChange={e=>setForm({...form,phone:e.target.value})} placeholder="+1 555 000 0000" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-foreground focus:outline-none focus:border-fuchsia-500" />
-                </div>
-              </div>
-
-              {/* Logo URL */}
-              <div>
-                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 block">Logo URL</label>
-                <input value={form.logo_url} onChange={e=>setForm({...form,logo_url:e.target.value})} placeholder="https://your-logo.png" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-foreground focus:outline-none focus:border-fuchsia-500" />
-              </div>
-            </div>
-            <div className="flex gap-3 p-6 border-t border-white/10">
-              <button onClick={() => setShowForm(false)} className="flex-1 py-2.5 rounded-xl bg-white/5 text-muted-foreground text-sm font-semibold hover:bg-white/10 transition">Cancel</button>
-              <button onClick={save} disabled={saving||!form.name} className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-fuchsia-600 to-purple-600 text-white text-sm font-bold hover:opacity-90 transition disabled:opacity-50">
-                {saving ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : editing ? "Save Changes" : "Create Brand"}
+              <button onClick={() => setShowForm(false)} className="p-2 rounded-xl hover:bg-white/10 text-slate-400 hover:text-white transition">
+                <X className="w-5 h-5" />
               </button>
+            </div>
+
+            {/* Step indicator */}
+            <div className="flex px-6 pt-4 gap-2">
+              {STEPS.map((s, i) => (
+                <button key={s} onClick={() => i < formStep + 1 && setFormStep(i)}
+                  className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition ${formStep === i ? "bg-fuchsia-600 text-white" : i < formStep ? "bg-fuchsia-600/30 text-fuchsia-400" : "bg-white/5 text-slate-500"}`}>
+                  {i < formStep ? "✓" : i + 1}. {s}
+                </button>
+              ))}
+            </div>
+
+            {/* Step content */}
+            <div className="p-6 space-y-4">
+
+              {/* Step 0 — Brand Details */}
+              {formStep === 0 && (
+                <div className="space-y-4">
+                  <div>
+                    <label className={lbl + " text-slate-400"}>Brand Name *</label>
+                    <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="Your Brand Name" className={inp} />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className={lbl + " text-slate-400"}>Tagline</label>
+                      <input value={form.tagline} onChange={e => setForm(f => ({ ...f, tagline: e.target.value }))} placeholder="Your brand tagline" className={inp} />
+                    </div>
+                    <div>
+                      <label className={lbl + " text-slate-400"}>Industry</label>
+                      <select value={form.industry} onChange={e => setForm(f => ({ ...f, industry: e.target.value }))} className={inp}>
+                        <option value="">Select industry</option>
+                        {INDUSTRIES.map(i => <option key={i}>{i}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div>
+                      <label className={lbl + " text-slate-400"}>Website</label>
+                      <input value={form.website} onChange={e => setForm(f => ({ ...f, website: e.target.value }))} placeholder="https://" className={inp} />
+                    </div>
+                    <div>
+                      <label className={lbl + " text-slate-400"}>Email</label>
+                      <input type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder="brand@email.com" className={inp} />
+                    </div>
+                    <div>
+                      <label className={lbl + " text-slate-400"}>Phone</label>
+                      <input value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} placeholder="+1 555 000 0000" className={inp} />
+                    </div>
+                  </div>
+                  {/* Logo upload */}
+                  <div>
+                    <label className={lbl + " text-slate-400"}>Brand Logo</label>
+                    <div className="flex items-center gap-4">
+                      {(form.logo_url || form.logo_file_url) ? (
+                        <div className="relative w-20 h-20 rounded-xl overflow-hidden border border-white/20 bg-white/5 flex-shrink-0">
+                          <img src={form.logo_url || form.logo_file_url} alt="logo" className="w-full h-full object-contain" />
+                          <button onClick={() => setForm(f => ({ ...f, logo_url: "", logo_file_url: "" }))}
+                            className="absolute top-1 right-1 w-5 h-5 bg-black/60 rounded-full flex items-center justify-center text-white hover:bg-red-600 transition">
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="w-20 h-20 rounded-xl border-2 border-dashed border-white/20 flex items-center justify-center bg-white/5 flex-shrink-0">
+                          <ImagePlus className="w-6 h-6 text-slate-500" />
+                        </div>
+                      )}
+                      <div className="flex-1 space-y-2">
+                        <button onClick={() => logoRef.current?.click()} disabled={uploading}
+                          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 border border-white/10 text-white text-sm font-medium hover:bg-white/15 transition disabled:opacity-50">
+                          {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                          {uploading ? "Uploading..." : "Upload Logo"}
+                        </button>
+                        <input ref={logoRef} type="file" accept="image/*" className="hidden" onChange={e => uploadLogo(e.target.files?.[0])} />
+                        <p className="text-xs text-slate-500">Or paste URL below</p>
+                        <input value={form.logo_url} onChange={e => setForm(f => ({ ...f, logo_url: e.target.value }))} placeholder="https://..." className={inp} />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Step 1 — Colors & Voice */}
+              {formStep === 1 && (
+                <div className="space-y-5">
+                  <div>
+                    <label className={lbl + " text-slate-400"}>Brand Colors</label>
+                    <div className="grid grid-cols-3 gap-4">
+                      {[
+                        { key:"primary_color", label:"Primary" },
+                        { key:"secondary_color", label:"Secondary" },
+                        { key:"accent_color", label:"Accent" },
+                      ].map(({ key, label }) => (
+                        <div key={key} className="flex flex-col items-center gap-2">
+                          <div className="w-full h-12 rounded-xl border border-white/20 overflow-hidden cursor-pointer hover:scale-105 transition" style={{ background: form[key] }}>
+                            <input type="color" value={form[key]} onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
+                              className="w-full h-full opacity-0 cursor-pointer" />
+                          </div>
+                          <span className="text-xs text-slate-400">{label}</span>
+                          <input value={form[key]} onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))} className="w-full text-center text-xs bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-white focus:outline-none" />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <label className={lbl + " text-slate-400"}>Brand Voice</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {BRAND_VOICES.map(v => (
+                        <button key={v} onClick={() => setForm(f => ({ ...f, brand_voice: v }))}
+                          className={`p-2.5 rounded-xl border text-xs text-left transition ${form.brand_voice === v ? "border-fuchsia-500 bg-fuchsia-500/10 text-fuchsia-300" : "border-white/10 text-slate-400 hover:border-white/20 hover:text-white"}`}>
+                          {v}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <label className={lbl + " text-slate-400"}>Target Audience</label>
+                    <input value={form.target_audience} onChange={e => setForm(f => ({ ...f, target_audience: e.target.value }))} placeholder="e.g. Women 25-45 interested in wellness" className={inp} />
+                  </div>
+                </div>
+              )}
+
+              {/* Step 2 — Social Accounts preview (added after saving) */}
+              {formStep === 2 && (
+                <div className="space-y-4">
+                  <div className="p-4 rounded-xl bg-fuchsia-500/5 border border-fuchsia-500/20 text-sm text-fuchsia-300 text-center">
+                    Social accounts are added after saving the brand. Save first, then expand the brand card to link accounts.
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    {PLATFORMS.map(p => (
+                      <div key={p.id} className={`p-3 rounded-xl bg-gradient-to-br ${p.color} bg-opacity-10 border border-white/10 flex items-center gap-2`}>
+                        <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${p.color} flex items-center justify-center`}>
+                          <span className="text-xs font-black text-white">{p.label[0]}</span>
+                        </div>
+                        <span className="text-sm text-white font-medium">{p.label}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Step 3 — Review */}
+              {formStep === 3 && (
+                <div className="space-y-4">
+                  <div className="flex items-center gap-4 p-4 rounded-xl bg-white/5 border border-white/10">
+                    <div className="w-16 h-16 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: form.primary_color }}>
+                      {form.logo_url
+                        ? <img src={form.logo_url} alt="logo" className="w-full h-full object-contain rounded-xl" />
+                        : <span className="text-2xl font-black text-white">{form.name?.[0]?.toUpperCase()}</span>
+                      }
+                    </div>
+                    <div>
+                      <p className="text-xl font-black text-white">{form.name}</p>
+                      {form.tagline && <p className="text-slate-400 text-sm">{form.tagline}</p>}
+                      <div className="flex gap-1 mt-1.5">
+                        {[form.primary_color, form.secondary_color, form.accent_color].map((c, i) => (
+                          <div key={i} className="w-5 h-5 rounded-full border border-white/20" style={{ background: c }} />
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    {form.industry && <div className="p-3 rounded-xl bg-white/5"><span className="text-slate-400 text-xs block">Industry</span><span className="text-white font-medium">{form.industry}</span></div>}
+                    {form.brand_voice && <div className="p-3 rounded-xl bg-white/5"><span className="text-slate-400 text-xs block">Brand Voice</span><span className="text-white font-medium">{form.brand_voice}</span></div>}
+                    {form.target_audience && <div className="col-span-2 p-3 rounded-xl bg-white/5"><span className="text-slate-400 text-xs block">Target Audience</span><span className="text-white font-medium">{form.target_audience}</span></div>}
+                    {form.website && <div className="p-3 rounded-xl bg-white/5"><span className="text-slate-400 text-xs block">Website</span><span className="text-fuchsia-400 font-medium">{form.website}</span></div>}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Modal footer */}
+            <div className="flex gap-3 p-6 border-t border-white/10 justify-between">
+              <button onClick={() => formStep > 0 ? setFormStep(s => s - 1) : setShowForm(false)}
+                className="px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm font-medium hover:bg-white/10 transition">
+                {formStep > 0 ? "← Back" : "Cancel"}
+              </button>
+              {formStep < STEPS.length - 1 ? (
+                <button onClick={() => { if(formStep===0&&!form.name.trim()){alert("Brand name is required");return;} setFormStep(s=>s+1); }}
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-fuchsia-600 to-purple-600 text-white font-bold text-sm hover:opacity-90 transition">
+                  Next <ChevronRight className="w-4 h-4" />
+                </button>
+              ) : (
+                <button onClick={save} disabled={saving}
+                  className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-fuchsia-600 to-purple-600 text-white font-bold text-sm hover:opacity-90 disabled:opacity-50 transition">
+                  {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                  {editing ? "Save Changes" : "Create Brand"}
+                </button>
+              )}
             </div>
           </div>
         </div>
