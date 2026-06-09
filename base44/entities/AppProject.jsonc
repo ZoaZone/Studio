@@ -1,0 +1,45 @@
+{
+  "name": "AppProject",
+  "type": "object",
+  "properties": {
+    "client_id": {
+      "type": "string"
+    },
+    "project_name": {
+      "type": "string"
+    },
+    "platform": {
+      "type": "string",
+      "enum": [
+        "ios",
+        "android",
+        "web",
+        "cross_platform"
+      ]
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "brief",
+        "wireframe",
+        "design",
+        "development",
+        "testing",
+        "launched"
+      ],
+      "default": "brief"
+    },
+    "brief": {
+      "type": "string"
+    },
+    "tech_stack": {
+      "type": "string"
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "project_name"
+  ]
+}

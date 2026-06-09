@@ -2,31 +2,50 @@
   "name": "SocialAccount",
   "type": "object",
   "properties": {
-    "client_id": { "type": "string" },
-    "brand_id":  { "type": "string", "description": "Link to Brand entity for multi-brand support" },
+    "client_id": {
+      "type": "string"
+    },
     "platform": {
       "type": "string",
-      "enum": ["instagram","facebook","tiktok","linkedin","youtube","twitter_x","pinterest","whatsapp","email"]
+      "enum": [
+        "instagram",
+        "facebook",
+        "tiktok",
+        "linkedin",
+        "youtube",
+        "twitter_x",
+        "pinterest"
+      ]
     },
-    "account_name":      { "type": "string" },
-    "username":          { "type": "string" },
-    "password":          { "type": "string", "description": "Stored encrypted — used for credential-based connection" },
-    "access_token":      { "type": "string" },
-    "refresh_token":     { "type": "string" },
-    "page_id":           { "type": "string" },
-    "webhook_url":       { "type": "string" },
-    "connection_method": {
-      "type": "string",
-      "enum": ["credentials", "api", "webhook"],
-      "default": "credentials"
+    "account_name": {
+      "type": "string"
+    },
+    "access_token": {
+      "type": "string"
+    },
+    "refresh_token": {
+      "type": "string"
     },
     "status": {
       "type": "string",
-      "enum": ["active","connected","disconnected","expired"],
-      "default": "active"
+      "enum": [
+        "connected",
+        "disconnected",
+        "expired"
+      ],
+      "default": "connected"
     },
-    "connected_at": { "type": "string", "format": "date-time" },
-    "description":  { "type": "string", "maxLength": 1000 }
+    "connected_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 1000
+    }
   },
-  "required": ["platform", "account_name"]
+  "required": [
+    "platform",
+    "account_name"
+  ]
 }
