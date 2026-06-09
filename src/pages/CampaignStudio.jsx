@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useOutletContext, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
@@ -81,6 +81,19 @@ export default function CampaignStudio() {
     queryFn: () => base44.entities.Brand.list("-created_date", 20),
     enabled: !!user,
   });
+
+  // Read prefill from ScriptWriter or other pages
+  useEffect(() => {
+    const prefill = sessionStorage.getItem("campaignStudio_prefill");
+    if (prefill) {
+      try {
+        const data = JSON.parse(prefill);
+        setCampaign(p => ({ ...p, ...data }));
+        if (data.ai_output) setStep(1); // jump to content step
+        sessionStorage.removeItem("campaignStudio_prefill");
+      } catch (_) {}
+    }
+  }, []);
 
   const activeBrand = brands.find(b => b.id === campaign.brand_id);
 
