@@ -88,9 +88,7 @@ const AuthenticatedApp = () => {
       <Route path="/invite" element={<BetaOnboarding />} />
       <Route path="/agent-program" element={<AgentProgram />} />
       <Route path="/agency-enquiry" element={<AgencyEnquiry />} />
-                    <Route path="/brands" element={<AppLayout><BrandManager /></AppLayout>} />
-              <Route path="/campaign-studio" element={<AppLayout><CampaignStudio /></AppLayout>} />
-              <Route path="/free-trial" element={<FreeTrial />} />
+<Route path="/free-trial" element={<FreeTrial />} />
 
       <Route element={<AppLayout />}>
         <Route path="/dashboard" element={<Dashboard />} />
@@ -101,6 +99,8 @@ const AuthenticatedApp = () => {
         <Route path="/video-editor" element={<VideoEditor />} />
         <Route path="/ad-creator" element={<AdCreator />} />
         <Route path="/script-writer" element={<ScriptWriter />} />
+        <Route path="/brands" element={<BrandManager />} />
+        <Route path="/campaign-studio" element={<CampaignStudio />} />
         <Route path="/website-scanner" element={<WebsiteScanner />} />
         <Route path="/funnel-builder" element={<FunnelBuilder />} />
         <Route path="/follow-up" element={<FollowUp />} />
