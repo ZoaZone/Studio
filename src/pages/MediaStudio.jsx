@@ -3,7 +3,7 @@ import { useOutletContext } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import {
-  Sparkles, Image, FileText, Megaphone, Hash, Loader2, Download,
+  Sparkles, Image, FileText, Megaphone, Hash, Loader2, Download, Eye,
   Copy, CheckCircle2, RefreshCw, Wand2, Video, Mic, Mail, MessageSquare,
   Globe, Palette, Play, Film, Zap, Star, ChevronDown, ChevronUp, Layers,
   Clapperboard, Volume2, Music, AlignLeft, Upload, X, ImagePlus
@@ -724,15 +724,24 @@ export default function MediaStudio() {
                     className="w-full rounded-xl shadow-lg bg-black"
                     style={{ maxHeight: 340 }}
                   />
+                  {/* All clips — preview + download each */}
                   {result.clipUrls?.length > 1 && (
-                    <div className="space-y-1.5">
-                      <p className="text-xs font-semibold text-muted-foreground">{result.clipUrls.length} clips generated — download each:</p>
-                      <div className="flex flex-wrap gap-2">
+                    <div className="space-y-3">
+                      <p className="text-xs font-bold text-muted-foreground">{result.clipUrls.length} clips generated</p>
+                      <div className="grid grid-cols-2 gap-3">
                         {result.clipUrls.map((url, i) => (
-                          <a key={i} href={url} download target="_blank" rel="noreferrer"
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-xs font-medium hover:border-fuchsia-500/40 transition-colors">
-                            <Download className="w-3 h-3" /> Clip {i + 1}
-                          </a>
+                          <div key={i} className="rounded-xl overflow-hidden border border-border bg-black">
+                            <video src={url} controls className="w-full" style={{ maxHeight: 180 }} />
+                            <div className="flex gap-2 p-2">
+                              <span className="text-xs text-muted-foreground flex-1">Clip {i + 1}</span>
+                              <a href={url} target="_blank" rel="noreferrer" className="p-1.5 rounded hover:bg-white/10 text-muted-foreground hover:text-white transition" title="View full">
+                                <Eye className="w-3 h-3" />
+                              </a>
+                              <a href={url} download className="p-1.5 rounded hover:bg-fuchsia-500/10 text-muted-foreground hover:text-fuchsia-400 transition" title="Download">
+                                <Download className="w-3 h-3" />
+                              </a>
+                            </div>
+                          </div>
                         ))}
                       </div>
                     </div>
@@ -740,7 +749,7 @@ export default function MediaStudio() {
                   <div className="flex gap-2">
                     <a href={result.url} download target="_blank" rel="noreferrer"
                       className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl border border-border text-sm font-medium hover:border-fuchsia-500/40 transition-colors">
-                      <Download className="w-4 h-4" /> {result.clipUrls?.length > 1 ? "Download Clip 1" : "Download Video"}
+                      <Download className="w-4 h-4" /> {result.clipUrls?.length > 1 ? "Download All / Clip 1" : "Download Video"}
                     </a>
                     <button onClick={generate}
                       className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-fuchsia-500/10 text-fuchsia-400 text-sm font-medium hover:bg-fuchsia-500/20 transition-colors">
