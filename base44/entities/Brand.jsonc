@@ -1,0 +1,23 @@
+{
+  "name": "Brand",
+  "type": "object",
+  "properties": {
+    "name":             { "type": "string" },
+    "tagline":          { "type": "string" },
+    "industry":         { "type": "string" },
+    "logo_url":         { "type": "string" },
+    "logo_file_url":    { "type": "string" },
+    "primary_color":    { "type": "string", "default": "#7c3aed" },
+    "secondary_color":  { "type": "string", "default": "#a855f7" },
+    "accent_color":     { "type": "string", "default": "#ec4899" },
+    "brand_voice":      { "type": "string" },
+    "target_audience":  { "type": "string" },
+    "website":          { "type": "string" },
+    "email":            { "type": "string" },
+    "phone":            { "type": "string" },
+    "tier_required":    { "type": "string", "enum": ["starter","pro","agency"], "default": "starter" },
+    "is_active":        { "type": "boolean", "default": true },
+    "owner_id":         { "type": "string" }
+  },
+  "required": ["name"]
+}
