@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { useOutletContext } from "react-router-dom";
+import { useOutletContext, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import {
@@ -91,6 +91,7 @@ const WIZARD_STEPS = [
 
 // ── Main Component ───────────────────────────────────────────────────────────
 export default function SocialHub() {
+  const navigate = useNavigate();
   const { user } = useOutletContext() || {};
   const qc = useQueryClient();
   const fileInputRef = useRef(null);
@@ -197,13 +198,15 @@ HASHTAGS:
         platform: platforms,
         tone: "Engaging",
       });
-      const text = res?.content || res?.text || "";
+      const raw = res?.content || res?.data?.content || res?.text || res?.data?.text || "";
+      const text = typeof raw === "string" ? raw : JSON.stringify(raw);
       const captionMatch = text.match(/CAPTION:\s*([\s\S]*?)(?=HASHTAGS:|$)/i);
       const hashMatch = text.match(/HASHTAGS:\s*([\s\S]*?)$/i);
       setWiz(w => ({
         ...w,
         caption: captionMatch ? captionMatch[1].trim() : text,
         hashtags: hashMatch ? hashMatch[1].trim() : w.hashtags,
+        aiTopic: w.aiTopic || w.caption,
       }));
     } catch (err) { alert("AI failed: " + err.message); }
     setWizLoading(false);
