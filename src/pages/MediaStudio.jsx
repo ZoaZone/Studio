@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useOutletContext } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
@@ -112,6 +112,25 @@ function buildPrompt(type, form) {
 export default function MediaStudio() {
   const { user } = useOutletContext() || {};
   const qc = useQueryClient();
+
+  // Read prefill from ScriptWriter
+  useEffect(() => {
+    const prefill = sessionStorage.getItem("mediaStudio_prefill");
+    if (prefill) {
+      try {
+        const data = JSON.parse(prefill);
+        if (data.type) setActiveType(data.type);
+        if (data.type) setActiveCat("video");
+        setForm(f => ({
+          ...f,
+          prompt: data.prompt || f.prompt,
+          platform: data.platform || f.platform,
+          tone: data.tone || f.tone,
+        }));
+        sessionStorage.removeItem("mediaStudio_prefill");
+      } catch (_) {}
+    }
+  }, []);
 
   const [activeType, setActiveType] = useState("image");
   const [activeCat, setActiveCat] = useState("all");
@@ -247,9 +266,10 @@ export default function MediaStudio() {
         const clipSec = numClips > 1 ? 8 : form.videoSeconds;
         const audioHint = form.audioNote ? ` Audio direction: ${form.audioNote}.` : "";
         const refImageUrls = uploadedFiles.filter(f => f.type?.startsWith("image/") && f.url && !f.uploadFailed).map(f => f.url);
+        // Safe ref hint — never ask Vertex to "replicate faces/persons" (policy violation)
         const refHint = refImageUrls.length
-          ? ` IMPORTANT: Reference images provided. Replicate the exact person(s), face(s), appearance, clothing and visual identity from the reference images faithfully throughout the entire video. The subject should appear in this video as shown in the reference.`
-          : uploadedFiles.length ? ` Style reference provided. Match the visual style, mood, colors and aesthetic from the reference material.` : "";
+          ? ` Visual style: match the aesthetic, color palette, mood, and composition of the reference material. Maintain consistent visual theme throughout.`
+          : uploadedFiles.length ? ` Style: match the visual mood and color palette from the provided reference.` : "";
 
         let clipUrls = [];
         for (let i = 0; i < numClips; i++) {
@@ -257,14 +277,14 @@ export default function MediaStudio() {
           const safePrompt = sanitizeVideoPrompt(form.prompt);
           const videoPrompt = `${safePrompt}.${sceneHint} Platform: ${form.platform}. Tone: ${form.tone}. Style: cinematic, high quality, professional marketing video. Seamlessly continues the same visual story.${audioHint}${refHint}`;
           // Pass uploaded reference images to video generation for subject replication
-          const refImageUrls = uploadedFiles
+          const clipRefUrls = uploadedFiles
             .filter(f => f.type?.startsWith("image/") && f.url && !f.uploadFailed)
             .map(f => f.url);
           const res = await base44.integrations.Core.GenerateVideo({
             prompt: videoPrompt,
             duration: clipSec,
             aspect_ratio: form.videoAspect,
-            existing_image_urls: refImageUrls.length ? refImageUrls : undefined,
+            existing_image_urls: clipRefUrls.length ? clipRefUrls : undefined,
           });
           if (res?.url) clipUrls.push(res.url);
         }
@@ -288,7 +308,7 @@ export default function MediaStudio() {
         const imageUrls = uploadedFiles.filter(f => f.type.startsWith("image/")).map(f => f.url);
         // When reference images are provided, explicitly instruct the model to replicate the subject
         const refInstruction = imageUrls.length
-          ? ` IMPORTANT: Replicate the exact person(s), face(s), and subject(s) from the provided reference images faithfully. Maintain their likeness, clothing, and appearance as closely as possible. Style the background and composition to match the marketing context.`
+          ? ` Match the visual style, mood, color palette, and subject composition from the reference images. Maintain consistent branding and aesthetic`
           : "";
         const res = await base44.functions.invoke("generateImage", {
           prompt: enhancedPrompt + refInstruction,
