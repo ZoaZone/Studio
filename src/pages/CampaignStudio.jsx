@@ -3,282 +3,376 @@ import { useOutletContext, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import {
-  Sparkles, Building2, FileText, Image, Video, Calendar, Send,
-  ChevronRight, ChevronLeft, Check, Loader2, X, Upload, AlertTriangle,
-  Instagram, Linkedin, Youtube, Globe, MessageSquare, Mail, Hash,
-  Play, Film, Layers, Zap, RefreshCw, Download, Clock, Users,
-  Shield, Eye, EyeOff, Plus, Trash2, Star, Music
+  Building2, FileText, Image, Video, Calendar, Send, ChevronRight,
+  ChevronLeft, Check, Loader2, X, Upload, AlertTriangle, Play, Film,
+  Layers, Zap, RefreshCw, Download, Clock, Shield, Plus, Trash2,
+  Star, ImagePlus, Hash, Megaphone, Mail, MessageSquare, Palette,
+  Users, Globe, Mic2, CheckCircle2, Share2, Sparkles, BookOpen, Eye
 } from "lucide-react";
 
 const STEPS = [
-  { id: "brand",    label: "Brand",    icon: Building2,    desc: "Choose your brand" },
-  { id: "content",  label: "Content",  icon: FileText,     desc: "AI-generated copy" },
-  { id: "media",    label: "Media",    icon: Image,        desc: "Create or upload visuals" },
-  { id: "format",   label: "Format",   icon: Layers,       desc: "Choose platform formats" },
-  { id: "schedule", label: "Schedule", icon: Calendar,     desc: "Pick date & time" },
-  { id: "publish",  label: "Publish",  icon: Send,         desc: "Review & go live" },
+  { id:"brand",    label:"Brand",        icon:Building2,  desc:"Select or create brand" },
+  { id:"accounts", label:"Accounts",     icon:Share2,     desc:"Link social accounts" },
+  { id:"content",  label:"Script/Copy",  icon:FileText,   desc:"AI-generated content" },
+  { id:"media",    label:"Media",        icon:Image,      desc:"Upload or generate visuals" },
+  { id:"format",   label:"Format",       icon:Layers,     desc:"Platform & format" },
+  { id:"schedule", label:"Schedule",     icon:Calendar,   desc:"Set dates & topics" },
+  { id:"publish",  label:"Publish",      icon:Send,       desc:"Review & go live" },
 ];
 
 const PLATFORMS = [
-  { id: "instagram", label: "Instagram", icon: "🟣", color: "from-pink-500 to-rose-600" },
-  { id: "facebook",  label: "Facebook",  icon: "🔵", color: "from-blue-500 to-blue-700" },
-  { id: "tiktok",    label: "TikTok",    icon: "⬛", color: "from-gray-700 to-gray-900" },
-  { id: "linkedin",  label: "LinkedIn",  icon: "🔷", color: "from-sky-600 to-blue-800" },
-  { id: "youtube",   label: "YouTube",   icon: "🔴", color: "from-red-500 to-red-700" },
-  { id: "twitter_x", label: "Twitter/X", icon: "⚫", color: "from-zinc-600 to-zinc-900" },
-  { id: "whatsapp",  label: "WhatsApp",  icon: "🟢", color: "from-green-500 to-emerald-600" },
-  { id: "email",     label: "Email",     icon: "💜", color: "from-violet-500 to-purple-600" },
+  { id:"instagram", label:"Instagram", color:"from-pink-500 to-rose-600" },
+  { id:"facebook",  label:"Facebook",  color:"from-blue-500 to-blue-700" },
+  { id:"tiktok",    label:"TikTok",    color:"from-gray-700 to-gray-900" },
+  { id:"linkedin",  label:"LinkedIn",  color:"from-sky-600 to-blue-800" },
+  { id:"youtube",   label:"YouTube",   color:"from-red-500 to-red-700" },
+  { id:"twitter_x", label:"Twitter/X", color:"from-zinc-600 to-zinc-900" },
+  { id:"whatsapp",  label:"WhatsApp",  color:"from-green-500 to-emerald-600" },
+  { id:"email",     label:"Email",     color:"from-violet-500 to-purple-600" },
 ];
-
-const FORMATS = {
-  instagram: [{ id:"feed",label:"Feed Post",size:"1080×1080",ratio:"1:1"},{id:"reel",label:"Reel",size:"1080×1920",ratio:"9:16"},{id:"story",label:"Story",size:"1080×1920",ratio:"9:16"},{id:"carousel",label:"Carousel",size:"1080×1080",ratio:"1:1"}],
-  facebook:  [{ id:"feed",label:"Feed Post",size:"1200×630",ratio:"1.91:1"},{id:"reel",label:"Reel",size:"1080×1920",ratio:"9:16"},{id:"story",label:"Story",size:"1080×1920",ratio:"9:16"}],
-  tiktok:    [{ id:"video",label:"TikTok Video",size:"1080×1920",ratio:"9:16"},{id:"photo",label:"Photo Post",size:"1080×1350",ratio:"4:5"}],
-  linkedin:  [{ id:"post",label:"Post",size:"1200×627",ratio:"1.91:1"},{id:"article",label:"Article Banner",size:"1200×644",ratio:"~1.86:1"}],
-  youtube:   [{ id:"short",label:"Short",size:"1080×1920",ratio:"9:16"},{id:"thumbnail",label:"Thumbnail",size:"1280×720",ratio:"16:9"}],
-  twitter_x: [{ id:"post",label:"Post",size:"1600×900",ratio:"16:9"}],
-};
 
 const CONTENT_TYPES = [
-  { id:"ad_copy",       label:"Ad Copy",        icon:"📢", desc:"Headline + body + CTA" },
-  { id:"caption",       label:"Caption",        icon:"✍️",  desc:"Social caption + emojis" },
-  { id:"video_script",  label:"Video Script",   icon:"🎬", desc:"Scene-by-scene script" },
-  { id:"email_template",label:"Email",          icon:"📧", desc:"Subject + full email body" },
-  { id:"whatsapp",      label:"WhatsApp Blast", icon:"💬", desc:"Broadcast message" },
-  { id:"hashtag_set",   label:"Hashtag Set",    icon:"#",  desc:"30 trending hashtags" },
+  { id:"caption",           label:"Social Caption",    icon:"📝" },
+  { id:"video_script",      label:"Video Script",      icon:"🎬" },
+  { id:"ad_copy",           label:"Ad Copy",           icon:"📢" },
+  { id:"email_template",    label:"Email",             icon:"📧" },
+  { id:"blog_post",         label:"Blog Post",         icon:"📰" },
+  { id:"whatsapp",          label:"WhatsApp Message",  icon:"💬" },
+  { id:"hashtag_set",       label:"Hashtag Set",       icon:"#️⃣" },
+  { id:"press_release",     label:"Press Release",     icon:"📣" },
 ];
 
-const CONSENT_RULES = [
-  "I have explicit consent from all people featured in reference images",
-  "Content will not include nudity, sexual material, or hate speech",
-  "Content will not be used for deception or impersonation",
-  "I accept full responsibility for the use of reference materials",
+const MEDIA_TYPES = [
+  { id:"ai_image",    label:"AI Image",     icon:"🎨", desc:"Generate from brand + prompt" },
+  { id:"ai_video",    label:"AI Video",     icon:"🎬", desc:"Generate video clip" },
+  { id:"upload",      label:"Upload Files", icon:"📁", desc:"Upload your own media" },
+  { id:"reference",   label:"Use Reference",icon:"🖼️",  desc:"Upload refs for AI to replicate style" },
+];
+
+const TONES = ["Professional","Casual","Bold","Luxury","Playful","Inspirational","Urgent","Friendly"];
+
+const inp = "w-full bg-background border border-border rounded-xl px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-fuchsia-500/70 transition";
+const lbl = "block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5";
+
+const CONSENT_ITEMS = [
+  "I confirm I have explicit permission from all individuals shown in reference media to use their likeness",
+  "This content does not contain nudity, hate speech, or impersonation of any person or brand",
+  "I take full legal and ethical responsibility for any AI-generated content using this reference material",
+  "I understand that reference images guide style/aesthetic only — not biometric face replication",
 ];
 
 export default function CampaignStudio() {
-  const { user, userTier = "starter" } = useOutletContext() || {};
+  const { user } = useOutletContext() || {};
   const qc = useQueryClient();
   const navigate = useNavigate();
+  const mediaRef = useRef();
+  const refMediaRef = useRef();
 
-  const [step, setStep] = useState(0); // 0=brand,1=content,2=media,3=format,4=schedule,5=publish
+  const [step, setStep] = useState(0);
   const [campaign, setCampaign] = useState({
-    brand_id: "", campaign_name: "", content_type: "ad_copy", ai_prompt: "", ai_output: "",
-    reference_images: [], reference_consent: false, media_urls: [], media_type: "image",
-    format: "", platforms: [], caption: "", hashtags: "", scheduled_at: "", status: "draft"
+    brand_id: "", campaign_name: "", content_type: "caption", ai_output: "", ai_prompt: "",
+    tone: "Professional", platforms: ["instagram"], selected_accounts: [],
+    media_choice: "", media_urls: [], ref_images: [], ref_consent: false,
+    caption: "", hashtags: "", media_type: "image", format: "feed",
+    schedules: [{ date: "", time: "09:00", topic: "", auto_topic: false }],
+    notes: "",
   });
   const [generating, setGenerating] = useState(false);
-  const [generatingImg, setGeneratingImg] = useState(false);
-  const [publishing, setPublishing] = useState(false);
-  const [consentChecked, setConsentChecked] = useState([false,false,false,false]);
+  const [generatingMedia, setGeneratingMedia] = useState(false);
+  const [uploadingMedia, setUploadingMedia] = useState(false);
+  const [uploadingRef, setUploadingRef] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [consentChecked, setConsentChecked] = useState([false, false, false, false]);
   const [showConsentModal, setShowConsentModal] = useState(false);
-  const [refInput, setRefInput] = useState("");
-  const [savedId, setSavedId] = useState(null);
-  const fileRef = useRef();
-  const mediaFileRef = useRef();
+  const [generatedMedia, setGeneratedMedia] = useState([]);
+  const [aiTopicLoading, setAiTopicLoading] = useState(false);
 
   const { data: brands = [] } = useQuery({
-    queryKey: ["brands", user?.id],
+    queryKey: ["brands"],
     queryFn: () => base44.entities.Brand.list("-created_date", 20),
-    enabled: !!user,
   });
 
-  // Read prefill from ScriptWriter or other pages
+  const { data: allAccounts = [] } = useQuery({
+    queryKey: ["social_accounts"],
+    queryFn: () => base44.entities.SocialAccount.list("-created_date", 100),
+  });
+
+  const { data: existingPosts = [] } = useQuery({
+    queryKey: ["campaign_posts"],
+    queryFn: () => base44.entities.CampaignPost.list("-created_date", 50),
+  });
+
+  // Read prefill from ScriptWriter or other sources
   useEffect(() => {
     const prefill = sessionStorage.getItem("campaignStudio_prefill");
     if (prefill) {
       try {
         const data = JSON.parse(prefill);
         setCampaign(p => ({ ...p, ...data }));
-        if (data.ai_output) setStep(1); // jump to content step
+        if (data.ai_output) setStep(2);
         sessionStorage.removeItem("campaignStudio_prefill");
       } catch (_) {}
     }
   }, []);
 
-  const activeBrand = brands.find(b => b.id === campaign.brand_id);
+  const selectedBrand = brands.find(b => b.id === campaign.brand_id);
+  const brandAccounts = allAccounts.filter(a => a.brand_id === campaign.brand_id);
+  const allConsentGiven = consentChecked.every(Boolean);
 
-  const set = (k, v) => setCampaign(p => ({ ...p, [k]: v }));
+  // Step 0: Select / quick-create brand
+  // Step 1: Pick social accounts for this campaign
+  // Step 2: Generate copy / script
+  // Step 3: Upload or generate media
+  // Step 4: Platform format
+  // Step 5: Schedule (multi-date up to 3 months)
+  // Step 6: Review & publish
 
-  // ── Generate copy ──────────────────────────────────────────────────────────
   const generateContent = async () => {
-    if (!campaign.ai_prompt) return;
+    if (!campaign.ai_prompt.trim()) { alert("Enter a topic or brief"); return; }
     setGenerating(true);
+    const brand = selectedBrand;
+    const brandContext = brand
+      ? `\n\nBrand: ${brand.name}. Voice: ${brand.brand_voice || "Professional"}. Audience: ${brand.target_audience || "general audience"}. Industry: ${brand.industry || ""}. Tagline: ${brand.tagline || ""}.`
+      : "";
     try {
-      const brandCtx = activeBrand
-        ? `Brand: ${activeBrand.name}. Voice: ${activeBrand.brand_voice||"professional"}. Audience: ${activeBrand.target_audience||"general"}. Industry: ${activeBrand.industry||""}.`
-        : "";
       const res = await base44.functions.invoke("generateMediaContent", {
         type: campaign.content_type,
-        prompt: `${brandCtx}\n\n${campaign.ai_prompt}`,
-        platform: campaign.platforms[0] || "instagram",
-        brand: activeBrand ? { name: activeBrand.name, voice: activeBrand.brand_voice, audience: activeBrand.target_audience } : null,
+        platform: campaign.platforms[0] || "Instagram",
+        tone: campaign.tone,
+        prompt: `${campaign.ai_prompt}${brandContext}`,
       });
-      set("ai_output", res.content || res.result || "");
-      if (res.caption) set("caption", res.caption);
-      if (res.hashtags) set("hashtags", res.hashtags);
+      const text = res?.content || res?.data?.content || res?.text || res?.data?.text || "";
+      setCampaign(p => ({ ...p, ai_output: typeof text === "string" ? text : JSON.stringify(text) }));
     } catch (e) { alert("Generation failed: " + e.message); }
     setGenerating(false);
   };
 
-  // ── Generate AI image ──────────────────────────────────────────────────────
-  const generateImage = async () => {
-    if (!campaign.ai_prompt) return;
-    setGeneratingImg(true);
+  const generateAITopics = async () => {
+    const brand = selectedBrand;
+    if (!brand) { alert("Select a brand first"); return; }
+    setAiTopicLoading(true);
     try {
-      const brandCtx = activeBrand ? `For brand "${activeBrand.name}" in ${activeBrand.industry||""}. ` : "";
       const res = await base44.functions.invoke("generateMediaContent", {
-        type: "image",
-        prompt: `${brandCtx}${campaign.ai_prompt}`,
-        reference_images: campaign.reference_consent ? campaign.reference_images : [],
+        type: "caption",
+        platform: campaign.platforms[0] || "Instagram",
+        tone: campaign.tone,
+        prompt: `Generate 10 creative content topic ideas for ${brand.name} (${brand.industry || "business"}) targeting ${brand.target_audience || "general audience"}. Each topic should be suitable for social media posts. Format as numbered list:\n1. [Topic]\n2. [Topic] ...`,
       });
-      if (res.image_url) {
-        set("media_urls", [...campaign.media_urls, res.image_url]);
-        set("media_type", "image");
+      const text = res?.content || res?.text || "";
+      setCampaign(p => ({ ...p, ai_output: typeof text === "string" ? text : JSON.stringify(text), content_type: "caption" }));
+    } catch (e) { alert(e.message); }
+    setAiTopicLoading(false);
+  };
+
+  const uploadMedia = async (files, isRef = false) => {
+    if (!files?.length) return;
+    isRef ? setUploadingRef(true) : setUploadingMedia(true);
+    const urls = [];
+    for (const file of Array.from(files)) {
+      try {
+        const url = await base44.storage.uploadFile(file);
+        urls.push({ url, name: file.name, type: file.type, size: file.size });
+      } catch (e) { console.error(e); }
+    }
+    if (isRef) {
+      setCampaign(p => ({ ...p, ref_images: [...p.ref_images, ...urls.map(u => u.url)] }));
+    } else {
+      setCampaign(p => ({ ...p, media_urls: [...p.media_urls, ...urls.map(u => u.url)] }));
+    }
+    isRef ? setUploadingRef(false) : setUploadingMedia(false);
+  };
+
+  const generateImage = async () => {
+    if (!campaign.ai_prompt.trim()) { alert("Enter a prompt/topic first in the Content step"); return; }
+    setGeneratingMedia(true);
+    const brand = selectedBrand;
+    const refUrls = campaign.ref_images;
+    const brandCtx = brand ? ` Brand: ${brand.name}. Colors: ${brand.primary_color || ""}. Style matches brand identity.` : "";
+    const safePrompt = `${campaign.ai_prompt}.${brandCtx} Professional marketing image for ${campaign.platforms[0] || "social media"}. High quality, commercial photography style. ${campaign.tone} tone.`;
+    try {
+      const res = await base44.integrations.Core.GenerateImage({
+        prompt: safePrompt,
+        existing_image_urls: refUrls.length ? refUrls : undefined,
+      });
+      if (res?.url) {
+        setGeneratedMedia(p => [...p, { url: res.url, type: "image" }]);
+        setCampaign(p => ({ ...p, media_urls: [...p.media_urls, res.url], media_type: "image" }));
       }
     } catch (e) { alert("Image generation failed: " + e.message); }
-    setGeneratingImg(false);
+    setGeneratingMedia(false);
   };
 
-  // ── Upload media files ─────────────────────────────────────────────────────
-  const uploadMedia = (e) => {
-    const files = Array.from(e.target.files);
-    files.forEach(file => {
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        set("media_urls", [...campaign.media_urls, ev.target.result]);
-        if (file.type.startsWith("video")) set("media_type", "video");
-      };
-      reader.readAsDataURL(file);
-    });
-  };
-
-  // ── Reference image upload ─────────────────────────────────────────────────
-  const uploadRef = (e) => {
-    const files = Array.from(e.target.files);
-    files.forEach(file => {
-      const reader = new FileReader();
-      reader.onload = (ev) => set("reference_images", [...campaign.reference_images, ev.target.result]);
-      reader.readAsDataURL(file);
-    });
-  };
-
-  const allConsented = consentChecked.every(Boolean);
-
-  const grantConsent = () => {
-    if (allConsented) {
-      set("reference_consent", true);
-      setShowConsentModal(false);
+  const generateVideo = async () => {
+    if (!allConsentGiven && campaign.ref_images.length > 0) {
+      setShowConsentModal(true);
+      return;
     }
-  };
-
-  // ── Save draft ─────────────────────────────────────────────────────────────
-  const saveDraft = async () => {
+    if (!campaign.ai_prompt.trim()) { alert("Enter a prompt/topic first"); return; }
+    setGeneratingMedia(true);
+    const brand = selectedBrand;
+    const refUrls = campaign.ref_images;
+    const brandCtx = brand ? ` Brand identity: ${brand.name}, ${brand.brand_voice || "professional"} tone.` : "";
+    // Safe prompt — no face-replication language
+    const safePrompt = `${campaign.ai_prompt}.${brandCtx} Match visual style, color palette and mood from reference material. Cinematic, professional marketing video for ${campaign.platforms[0] || "social media"}. ${campaign.tone} tone.`;
     try {
-      const record = await base44.entities.CampaignPost.create({ ...campaign, owner_id: user?.id, status: "draft" });
-      setSavedId(record.id);
-      return record.id;
-    } catch (e) { console.error(e); }
-  };
-
-  // ── Publish ────────────────────────────────────────────────────────────────
-  const publish = async () => {
-    setPublishing(true);
-    try {
-      const id = savedId || await saveDraft();
-      if (campaign.scheduled_at) {
-        await base44.entities.CampaignPost.update(id, { status: "scheduled" });
-        alert(`✅ Scheduled for ${new Date(campaign.scheduled_at).toLocaleString()}`);
-      } else {
-        await base44.functions.invoke("publishScheduledPosts", { post_id: id, immediate: true });
-        await base44.entities.CampaignPost.update(id, { status: "published" });
-        alert("✅ Published successfully!");
+      const newClips = [];
+      // Generate up to 3 clips if multiple are needed
+      for (let i = 0; i < 1; i++) {
+        const res = await base44.integrations.Core.GenerateVideo({
+          prompt: safePrompt,
+          duration: 8,
+          aspect_ratio: "9:16",
+          existing_image_urls: refUrls.length ? refUrls : undefined,
+        });
+        if (res?.url) newClips.push({ url: res.url, type: "video" });
       }
-      navigate("/dashboard");
+      setGeneratedMedia(p => [...p, ...newClips]);
+      setCampaign(p => ({ ...p, media_urls: [...p.media_urls, ...newClips.map(c => c.url)], media_type: "video" }));
+    } catch (e) { alert("Video generation failed: " + e.message); }
+    setGeneratingMedia(false);
+  };
+
+  const addScheduleSlot = () => {
+    if (campaign.schedules.length >= 90) return;
+    setCampaign(p => ({ ...p, schedules: [...p.schedules, { date: "", time: "09:00", topic: "", auto_topic: false }] }));
+  };
+
+  const generateScheduleDates = () => {
+    // Auto-generate 12 dates spread over 3 months
+    const dates = [];
+    const start = new Date();
+    for (let i = 0; i < 12; i++) {
+      const d = new Date(start);
+      d.setDate(d.getDate() + (i + 1) * 7);
+      dates.push({
+        date: d.toISOString().split("T")[0],
+        time: "09:00",
+        topic: "",
+        auto_topic: true,
+      });
+    }
+    setCampaign(p => ({ ...p, schedules: dates }));
+  };
+
+  const autoFillTopics = async () => {
+    if (!selectedBrand) { alert("Select a brand first"); return; }
+    setAiTopicLoading(true);
+    try {
+      const res = await base44.functions.invoke("generateMediaContent", {
+        type: "caption",
+        platform: campaign.platforms[0] || "Instagram",
+        tone: campaign.tone,
+        prompt: `Generate ${campaign.schedules.length} unique social media post topics for ${selectedBrand.name} (${selectedBrand.industry || "business"}). One topic per line. Just the topic, no numbers or formatting.`,
+      });
+      const text = res?.content || res?.text || "";
+      const topics = (typeof text === "string" ? text : "").split("\n").filter(Boolean).map(t => t.replace(/^\d+\.\s*/, "").trim());
+      setCampaign(p => ({
+        ...p,
+        schedules: p.schedules.map((s, i) => ({ ...s, topic: topics[i] || s.topic })),
+      }));
+    } catch (e) { alert(e.message); }
+    setAiTopicLoading(false);
+  };
+
+  const publishCampaign = async () => {
+    setSaving(true);
+    try {
+      for (const sch of campaign.schedules) {
+        if (!sch.date) continue;
+        await base44.entities.CampaignPost.create({
+          brand_id: campaign.brand_id,
+          campaign_name: campaign.campaign_name || "Campaign",
+          content_type: campaign.content_type,
+          ai_prompt: campaign.ai_prompt,
+          ai_output: campaign.ai_output,
+          caption: campaign.ai_output?.slice(0, 500) || "",
+          platforms: campaign.platforms,
+          media_urls: campaign.media_urls,
+          reference_images: campaign.ref_images,
+          reference_consent: campaign.ref_consent || allConsentGiven,
+          media_type: campaign.media_type || "image",
+          scheduled_at: `${sch.date}T${sch.time}:00`,
+          status: "scheduled",
+          owner_id: user?.id,
+        });
+      }
+      qc.invalidateQueries(["campaign_posts"]);
+      setSaved(true);
     } catch (e) { alert("Publish failed: " + e.message); }
-    setPublishing(false);
+    setSaving(false);
   };
 
   const canNext = () => {
-    if (step === 0) return !!campaign.brand_id && !!campaign.campaign_name;
-    if (step === 1) return !!campaign.content_type;
-    if (step === 2) return campaign.media_urls.length > 0 || !!campaign.ai_output;
-    if (step === 3) return campaign.platforms.length > 0;
-    if (step === 4) return true;
+    if (step === 0) return !!campaign.brand_id;
     return true;
   };
 
-  const togglePlatform = (id) => {
-    set("platforms", campaign.platforms.includes(id)
-      ? campaign.platforms.filter(p => p !== id)
-      : [...campaign.platforms, id]);
-  };
-
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
+    <div className="max-w-5xl mx-auto space-y-6">
+
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-black text-foreground flex items-center gap-2">
-          <Sparkles className="w-6 h-6 text-fuchsia-400" /> Campaign Studio
-        </h1>
-        <p className="text-muted-foreground text-sm mt-0.5">Create, design, and publish in one seamless flow</p>
+      <div className="flex items-center justify-between flex-wrap gap-4">
+        <div>
+          <h1 className="text-2xl font-black text-foreground flex items-center gap-2">
+            <Sparkles className="w-6 h-6 text-fuchsia-400" /> Campaign Studio
+          </h1>
+          <p className="text-sm text-muted-foreground mt-0.5">Full campaign creation workflow — brand to publish</p>
+        </div>
+        {campaign.campaign_name && (
+          <span className="px-3 py-1 rounded-full bg-fuchsia-500/10 text-fuchsia-400 text-sm font-medium">{campaign.campaign_name}</span>
+        )}
       </div>
 
-      {/* Step progress */}
-      <div className="flex items-center gap-1 overflow-x-auto pb-2">
+      {/* Step indicator */}
+      <div className="flex gap-1 overflow-x-auto pb-1">
         {STEPS.map((s, i) => {
           const Icon = s.icon;
-          const done = i < step;
-          const active = i === step;
           return (
-            <div key={s.id} className="flex items-center gap-1 flex-shrink-0">
-              <button
-                onClick={() => i < step && setStep(i)}
-                className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition ${
-                  active ? "bg-fuchsia-600 text-white" :
-                  done ? "bg-fuchsia-600/20 text-fuchsia-400 hover:bg-fuchsia-600/30 cursor-pointer" :
-                  "bg-white/5 text-muted-foreground cursor-default"
-                }`}
-              >
-                {done ? <Check className="w-3.5 h-3.5" /> : <Icon className="w-3.5 h-3.5" />}
-                <span className="hidden sm:inline">{s.label}</span>
-              </button>
-              {i < STEPS.length - 1 && <ChevronRight className="w-3 h-3 text-muted-foreground/40 flex-shrink-0" />}
-            </div>
+            <button key={s.id} onClick={() => i <= step && setStep(i)}
+              className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition flex-shrink-0 ${step === i ? "bg-fuchsia-600 text-white" : i < step ? "bg-fuchsia-600/20 text-fuchsia-400 cursor-pointer" : "bg-white/5 text-muted-foreground cursor-not-allowed"}`}>
+              {i < step ? <Check className="w-3 h-3" /> : <Icon className="w-3 h-3" />}
+              {s.label}
+            </button>
           );
         })}
       </div>
 
-      {/* Step content */}
-      <div className="bg-card border border-white/10 rounded-2xl p-6 min-h-[400px]">
+      {/* Step panels */}
+      <div className="bg-card border border-border rounded-2xl p-6 min-h-[400px]">
 
-        {/* STEP 0: Brand */}
+        {/* ── STEP 0: BRAND ── */}
         {step === 0 && (
           <div className="space-y-5">
             <div>
-              <h2 className="text-lg font-black text-foreground mb-1">Choose a Brand</h2>
-              <p className="text-muted-foreground text-sm">Select which brand this campaign is for</p>
+              <h2 className="text-lg font-bold text-foreground mb-1">Select Brand</h2>
+              <p className="text-sm text-muted-foreground">Choose an existing brand or create a new one first.</p>
+            </div>
+            <div>
+              <label className={lbl}>Campaign Name</label>
+              <input value={campaign.campaign_name} onChange={e => setCampaign(p => ({ ...p, campaign_name: e.target.value }))} placeholder="e.g. Summer Sale 2026" className={inp} />
             </div>
             {brands.length === 0 ? (
-              <div className="text-center py-12 border-2 border-dashed border-white/10 rounded-xl">
-                <Building2 className="w-10 h-10 mx-auto text-muted-foreground/40 mb-3" />
-                <p className="text-muted-foreground font-medium">No brands yet</p>
-                <button onClick={() => navigate("/brands")} className="mt-3 px-4 py-2 rounded-xl bg-fuchsia-600 text-white text-sm font-bold">
-                  Create Your First Brand →
+              <div className="text-center py-10 border-2 border-dashed border-white/10 rounded-2xl">
+                <Building2 className="w-12 h-12 mx-auto text-muted-foreground/20 mb-3" />
+                <p className="text-foreground font-bold">No brands yet</p>
+                <p className="text-sm text-muted-foreground mt-1 mb-4">Create your brand first before creating a campaign</p>
+                <button onClick={() => navigate("/brands")} className="px-4 py-2 rounded-xl bg-fuchsia-600 text-white text-sm font-bold hover:opacity-90">
+                  Go to Brand Manager
                 </button>
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid sm:grid-cols-2 gap-3">
                 {brands.map(b => (
-                  <button key={b.id} onClick={() => set("brand_id", b.id)}
-                    className={`text-left p-4 rounded-xl border-2 transition ${campaign.brand_id === b.id ? "border-fuchsia-500 bg-fuchsia-500/10" : "border-white/10 bg-white/5 hover:border-white/20"}`}>
+                  <button key={b.id} onClick={() => setCampaign(p => ({ ...p, brand_id: b.id }))}
+                    className={`p-4 rounded-xl border text-left transition ${campaign.brand_id === b.id ? "border-fuchsia-500 bg-fuchsia-500/10" : "border-border hover:border-fuchsia-500/40"}`}>
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl font-black text-white flex-shrink-0"
-                        style={{ background: `linear-gradient(135deg, ${b.primary_color||"#7c3aed"}, ${b.secondary_color||"#a855f7"})` }}>
-                        {(b.name||"B")[0]}
+                      <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: b.primary_color || "#7c3aed" }}>
+                        {b.logo_url ? <img src={b.logo_url} alt={b.name} className="w-full h-full object-contain rounded-xl" /> : <span className="text-sm font-black text-white">{b.name?.[0]}</span>}
                       </div>
                       <div>
-                        <p className="font-bold text-foreground text-sm">{b.name}</p>
-                        <p className="text-muted-foreground text-xs">{b.industry || b.tagline || "No industry set"}</p>
+                        <p className="font-bold text-foreground">{b.name}</p>
+                        <p className="text-xs text-muted-foreground">{b.industry || "No industry"}</p>
                       </div>
                       {campaign.brand_id === b.id && <Check className="w-5 h-5 text-fuchsia-400 ml-auto" />}
                     </div>
@@ -286,332 +380,453 @@ export default function CampaignStudio() {
                 ))}
               </div>
             )}
-            <div>
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 block">Campaign Name *</label>
-              <input value={campaign.campaign_name} onChange={e=>set("campaign_name",e.target.value)}
-                placeholder="e.g. Summer Sale 2026" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-foreground focus:outline-none focus:border-fuchsia-500" />
-            </div>
           </div>
         )}
 
-        {/* STEP 1: Content */}
+        {/* ── STEP 1: ACCOUNTS ── */}
         {step === 1 && (
           <div className="space-y-5">
             <div>
-              <h2 className="text-lg font-black text-foreground mb-1">Generate Content</h2>
-              <p className="text-muted-foreground text-sm">AI will write copy using your brand voice and guidelines</p>
+              <h2 className="text-lg font-bold text-foreground mb-1">Social Accounts</h2>
+              <p className="text-sm text-muted-foreground">Select which accounts to post to for this campaign.</p>
             </div>
-            {activeBrand && (
-              <div className="flex items-center gap-3 p-3 bg-fuchsia-500/10 border border-fuchsia-500/20 rounded-xl">
-                <div className="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-black text-white"
-                  style={{ background: `linear-gradient(135deg, ${activeBrand.primary_color||"#7c3aed"}, ${activeBrand.secondary_color||"#a855f7"})` }}>
-                  {(activeBrand.name||"B")[0]}
-                </div>
-                <div>
-                  <p className="text-fuchsia-300 text-xs font-semibold">{activeBrand.name}</p>
-                  <p className="text-muted-foreground text-xs">{activeBrand.brand_voice || "No voice set"} · {activeBrand.target_audience || "General audience"}</p>
+            {brandAccounts.length === 0 ? (
+              <div className="text-center py-10 border-2 border-dashed border-white/10 rounded-2xl">
+                <Share2 className="w-10 h-10 mx-auto text-muted-foreground/20 mb-3" />
+                <p className="font-bold text-foreground">No accounts linked to {selectedBrand?.name}</p>
+                <p className="text-sm text-muted-foreground mt-1 mb-4">Add social accounts to your brand first</p>
+                <button onClick={() => navigate("/brands")} className="px-4 py-2 rounded-xl bg-fuchsia-600 text-white text-sm font-bold hover:opacity-90">
+                  Add in Brand Manager
+                </button>
+              </div>
+            ) : (
+              <div className="grid sm:grid-cols-2 gap-3">
+                {brandAccounts.map(a => {
+                  const plat = PLATFORMS.find(p => p.id === a.platform);
+                  const selected = campaign.selected_accounts.includes(a.id);
+                  return (
+                    <button key={a.id} onClick={() => setCampaign(p => ({
+                      ...p,
+                      selected_accounts: selected ? p.selected_accounts.filter(id => id !== a.id) : [...p.selected_accounts, a.id],
+                      platforms: selected
+                        ? p.platforms.filter(pl => pl !== a.platform)
+                        : [...new Set([...p.platforms, a.platform])],
+                    }))}
+                      className={`p-4 rounded-xl border text-left transition ${selected ? "border-fuchsia-500 bg-fuchsia-500/10" : "border-border hover:border-fuchsia-500/40"}`}>
+                      <div className="flex items-center gap-3">
+                        <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${plat?.color || "from-gray-500 to-gray-700"} flex items-center justify-center flex-shrink-0`}>
+                          <span className="text-sm font-black text-white">{a.platform?.[0]?.toUpperCase()}</span>
+                        </div>
+                        <div>
+                          <p className="font-bold text-foreground">{a.account_name}</p>
+                          <p className="text-xs text-muted-foreground">{plat?.label}{a.username ? ` · @${a.username}` : ""}</p>
+                        </div>
+                        {selected && <Check className="w-5 h-5 text-fuchsia-400 ml-auto" />}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+            {/* Also show all unlinked accounts */}
+            {allAccounts.filter(a => !a.brand_id).length > 0 && (
+              <div>
+                <p className="text-xs text-muted-foreground mb-2">Other accounts (not linked to a brand):</p>
+                <div className="grid sm:grid-cols-2 gap-2">
+                  {allAccounts.filter(a => !a.brand_id).map(a => {
+                    const plat = PLATFORMS.find(p => p.id === a.platform);
+                    const selected = campaign.selected_accounts.includes(a.id);
+                    return (
+                      <button key={a.id} onClick={() => setCampaign(p => ({
+                        ...p,
+                        selected_accounts: selected ? p.selected_accounts.filter(id => id !== a.id) : [...p.selected_accounts, a.id],
+                        platforms: selected ? p.platforms.filter(pl => pl !== a.platform) : [...new Set([...p.platforms, a.platform])],
+                      }))}
+                        className={`p-3 rounded-xl border text-xs text-left transition ${selected ? "border-fuchsia-500/50 bg-fuchsia-500/5" : "border-border/50 hover:border-fuchsia-500/30"}`}>
+                        <div className="flex items-center gap-2">
+                          <div className={`w-7 h-7 rounded-lg bg-gradient-to-br ${plat?.color || "from-gray-500 to-gray-700"} flex items-center justify-center`}>
+                            <span className="text-xs font-black text-white">{a.platform?.[0]?.toUpperCase()}</span>
+                          </div>
+                          <span className="text-foreground font-medium">{a.account_name}</span>
+                          {selected && <Check className="w-3 h-3 text-fuchsia-400 ml-auto" />}
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             )}
+          </div>
+        )}
+
+        {/* ── STEP 2: CONTENT / SCRIPT ── */}
+        {step === 2 && (
+          <div className="space-y-5">
+            <div className="flex items-center justify-between flex-wrap gap-3">
+              <div>
+                <h2 className="text-lg font-bold text-foreground mb-1">Content & Script</h2>
+                <p className="text-sm text-muted-foreground">AI-generate your copy, script, or ad content</p>
+              </div>
+              <button onClick={() => navigate("/script-writer")} className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-fuchsia-600/10 text-fuchsia-400 hover:bg-fuchsia-600/20 transition">
+                <BookOpen className="w-3 h-3" /> Open Script Writer
+              </button>
+            </div>
+            {/* Type selector */}
             <div>
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 block">Content Type</label>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                {CONTENT_TYPES.map(ct => (
-                  <button key={ct.id} onClick={() => set("content_type", ct.id)}
-                    className={`p-3 rounded-xl border text-left transition ${campaign.content_type === ct.id ? "border-fuchsia-500 bg-fuchsia-500/10" : "border-white/10 bg-white/5 hover:border-white/20"}`}>
-                    <span className="text-lg">{ct.icon}</span>
-                    <p className="text-xs font-bold text-foreground mt-1">{ct.label}</p>
-                    <p className="text-xs text-muted-foreground">{ct.desc}</p>
+              <label className={lbl}>Content Type</label>
+              <div className="grid grid-cols-4 gap-2">
+                {CONTENT_TYPES.map(t => (
+                  <button key={t.id} onClick={() => setCampaign(p => ({ ...p, content_type: t.id }))}
+                    className={`p-2.5 rounded-xl border text-center text-xs transition ${campaign.content_type === t.id ? "border-fuchsia-500 bg-fuchsia-500/10 text-fuchsia-300" : "border-border text-muted-foreground hover:border-fuchsia-500/30"}`}>
+                    <span className="text-lg block mb-1">{t.icon}</span>{t.label}
                   </button>
                 ))}
               </div>
             </div>
+            {/* Tone */}
             <div>
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 block">What are you promoting?</label>
-              <textarea value={campaign.ai_prompt} onChange={e=>set("ai_prompt",e.target.value)} rows={3}
-                placeholder="e.g. 50% off summer collection for women, limited time, ends Sunday. Tone: exciting, urgent." className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-foreground focus:outline-none focus:border-fuchsia-500 resize-none" />
+              <label className={lbl}>Tone</label>
+              <div className="flex flex-wrap gap-2">
+                {TONES.map(t => (
+                  <button key={t} onClick={() => setCampaign(p => ({ ...p, tone: t }))}
+                    className={`px-3 py-1 rounded-full text-xs font-bold transition ${campaign.tone === t ? "bg-fuchsia-600 text-white" : "bg-white/5 text-muted-foreground hover:bg-white/10"}`}>
+                    {t}
+                  </button>
+                ))}
+              </div>
             </div>
-            <button onClick={generateContent} disabled={generating||!campaign.ai_prompt}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-fuchsia-600 to-purple-600 text-white text-sm font-bold hover:opacity-90 transition disabled:opacity-50">
-              {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-              {generating ? "Generating..." : "Generate with AI"}
-            </button>
+            {/* Prompt */}
+            <div>
+              <label className={lbl}>Topic / Brief *</label>
+              <textarea value={campaign.ai_prompt} onChange={e => setCampaign(p => ({ ...p, ai_prompt: e.target.value }))} rows={3}
+                placeholder="Describe what this content is about..."
+                className={inp + " resize-none"} />
+            </div>
+            <div className="flex gap-2">
+              <button onClick={generateContent} disabled={generating || !campaign.ai_prompt}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-fuchsia-600 to-purple-600 text-white font-bold text-sm hover:opacity-90 disabled:opacity-50 transition">
+                {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                {generating ? "Generating..." : "Generate"}
+              </button>
+              <button onClick={generateAITopics} disabled={aiTopicLoading || !selectedBrand}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/10 text-white text-sm font-bold hover:bg-white/15 disabled:opacity-50 transition">
+                {aiTopicLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
+                Suggest Topics
+              </button>
+            </div>
             {campaign.ai_output && (
-              <div className="bg-white/5 border border-white/10 rounded-xl p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <p className="text-xs font-semibold text-fuchsia-400 uppercase tracking-wide">Generated Content</p>
-                  <button onClick={generateContent} disabled={generating} className="text-xs text-muted-foreground hover:text-white flex items-center gap-1">
-                    <RefreshCw className="w-3 h-3" /> Regenerate
-                  </button>
-                </div>
-                <textarea value={campaign.ai_output} onChange={e=>set("ai_output",e.target.value)} rows={6}
-                  className="w-full bg-transparent text-sm text-foreground focus:outline-none resize-none" />
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* STEP 2: Media */}
-        {step === 2 && (
-          <div className="space-y-5">
-            <div>
-              <h2 className="text-lg font-black text-foreground mb-1">Create / Upload Media</h2>
-              <p className="text-muted-foreground text-sm">Generate AI visuals, upload images/videos, or combine multiple files</p>
-            </div>
-
-            {/* Reference images with consent */}
-            <div className="bg-amber-500/5 border border-amber-500/20 rounded-xl p-4">
-              <div className="flex items-start gap-3">
-                <Shield className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
-                <div className="flex-1">
-                  <p className="text-amber-300 font-semibold text-sm">Reference Person / Style Images</p>
-                  <p className="text-amber-400/70 text-xs mt-1">Upload a reference photo to maintain character or style continuity across your campaign. Requires explicit consent.</p>
-                  {!campaign.reference_consent ? (
-                    <button onClick={() => setShowConsentModal(true)}
-                      className="mt-2 px-3 py-1.5 rounded-lg bg-amber-500/20 text-amber-300 text-xs font-semibold hover:bg-amber-500/30 transition">
-                      + Add Reference (Consent Required)
-                    </button>
-                  ) : (
-                    <div className="mt-2">
-                      <p className="text-emerald-400 text-xs font-semibold flex items-center gap-1"><Check className="w-3 h-3" /> Consent granted</p>
-                      <div className="flex gap-2 mt-2 flex-wrap">
-                        {campaign.reference_images.map((img, i) => (
-                          <div key={i} className="relative">
-                            <img src={img} className="w-14 h-14 rounded-lg object-cover border border-white/10" />
-                            <button onClick={() => set("reference_images", campaign.reference_images.filter((_,j)=>j!==i))}
-                              className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center text-white text-xs">×</button>
-                          </div>
-                        ))}
-                        <button onClick={() => fileRef.current?.click()}
-                          className="w-14 h-14 rounded-lg border-2 border-dashed border-amber-500/30 flex items-center justify-center text-amber-400 hover:bg-amber-500/10 transition">
-                          <Plus className="w-5 h-5" />
-                        </button>
-                        <input ref={fileRef} type="file" accept="image/*" multiple className="hidden" onChange={uploadRef} />
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* AI image gen */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <button onClick={generateImage} disabled={generatingImg||!campaign.ai_prompt}
-                className="flex items-center gap-2 px-4 py-3 rounded-xl bg-gradient-to-r from-fuchsia-600 to-purple-600 text-white text-sm font-bold hover:opacity-90 transition disabled:opacity-50 justify-center">
-                {generatingImg ? <Loader2 className="w-4 h-4 animate-spin" /> : <Image className="w-4 h-4" />}
-                {generatingImg ? "Generating..." : "Generate AI Image"}
-              </button>
-              <button onClick={() => mediaFileRef.current?.click()}
-                className="flex items-center gap-2 px-4 py-3 rounded-xl bg-white/10 text-foreground text-sm font-bold hover:bg-white/15 transition justify-center">
-                <Upload className="w-4 h-4" /> Upload Files
-                <span className="text-xs text-muted-foreground">(images & videos)</span>
-              </button>
-              <input ref={mediaFileRef} type="file" accept="image/*,video/*" multiple className="hidden" onChange={uploadMedia} />
-            </div>
-
-            {/* Media preview grid */}
-            {campaign.media_urls.length > 0 && (
               <div>
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
-                  Media Files ({campaign.media_urls.length}) — drag to reorder
-                </p>
-                <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-                  {campaign.media_urls.map((url, i) => (
-                    <div key={i} className="relative group aspect-square">
-                      {url.includes("video") || url.startsWith("data:video") ? (
-                        <video src={url} className="w-full h-full object-cover rounded-xl border border-white/10" />
-                      ) : (
-                        <img src={url} className="w-full h-full object-cover rounded-xl border border-white/10" />
-                      )}
-                      <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition rounded-xl flex items-center justify-center gap-2">
-                        {i === 0 && <Star className="w-4 h-4 text-yellow-400" title="Cover" />}
-                        <button onClick={() => set("media_urls", campaign.media_urls.filter((_,j)=>j!==i))}
-                          className="p-1 bg-red-500/80 rounded-lg"><Trash2 className="w-3 h-3 text-white" /></button>
-                      </div>
-                    </div>
-                  ))}
-                  <button onClick={() => mediaFileRef.current?.click()}
-                    className="aspect-square rounded-xl border-2 border-dashed border-white/10 flex items-center justify-center text-muted-foreground hover:border-fuchsia-500/40 hover:text-fuchsia-400 transition">
-                    <Plus className="w-6 h-6" />
-                  </button>
-                </div>
-                {campaign.media_urls.length > 1 && (
-                  <p className="text-xs text-fuchsia-400 mt-2 flex items-center gap-1">
-                    <Film className="w-3 h-3" /> {campaign.media_urls.length} files selected — will be combined into a single video/carousel
-                  </p>
-                )}
+                <label className={lbl}>Output — Edit as needed</label>
+                <textarea value={campaign.ai_output} onChange={e => setCampaign(p => ({ ...p, ai_output: e.target.value }))} rows={12}
+                  className={inp + " resize-none font-mono text-xs leading-relaxed"} />
               </div>
             )}
           </div>
         )}
 
-        {/* STEP 3: Format & Platforms */}
+        {/* ── STEP 3: MEDIA ── */}
         {step === 3 && (
           <div className="space-y-5">
             <div>
-              <h2 className="text-lg font-black text-foreground mb-1">Platforms & Formats</h2>
-              <p className="text-muted-foreground text-sm">Select where to post and the format for each platform</p>
+              <h2 className="text-lg font-bold text-foreground mb-1">Media Creation</h2>
+              <p className="text-sm text-muted-foreground">Upload files, generate images/video, or provide reference material</p>
             </div>
+
+            {/* Reference Images section — with consent gate */}
+            <div className="border border-amber-500/20 bg-amber-500/5 rounded-xl p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <Shield className="w-4 h-4 text-amber-400" />
+                <p className="text-sm font-bold text-amber-300">Reference Images (Optional)</p>
+              </div>
+              <p className="text-xs text-amber-300/70">Upload reference images to guide AI style, mood, and visual direction. AI will match aesthetic — not replicate faces/identity.</p>
+
+              {campaign.ref_images.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {campaign.ref_images.map((url, i) => (
+                    <div key={i} className="relative w-16 h-16 rounded-lg overflow-hidden border border-white/10">
+                      <img src={url} alt="" className="w-full h-full object-cover" />
+                      <button onClick={() => setCampaign(p => ({ ...p, ref_images: p.ref_images.filter((_, j) => j !== i) }))}
+                        className="absolute top-0.5 right-0.5 w-4 h-4 bg-black/60 rounded-full flex items-center justify-center text-white hover:bg-red-600 transition">
+                        <X className="w-2.5 h-2.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Consent checkboxes */}
+              {!allConsentGiven && (
+                <div className="space-y-2">
+                  {CONSENT_ITEMS.map((item, i) => (
+                    <label key={i} className="flex items-start gap-2 cursor-pointer group">
+                      <input type="checkbox" checked={consentChecked[i]} onChange={e => {
+                        const updated = [...consentChecked];
+                        updated[i] = e.target.checked;
+                        setConsentChecked(updated);
+                      }} className="mt-0.5 accent-fuchsia-500" />
+                      <span className="text-xs text-muted-foreground group-hover:text-foreground transition">{item}</span>
+                    </label>
+                  ))}
+                </div>
+              )}
+
+              {allConsentGiven && (
+                <div className="flex items-center gap-2 text-xs text-emerald-400">
+                  <CheckCircle2 className="w-4 h-4" /> Consent confirmed — reference upload unlocked
+                </div>
+              )}
+
+              <button onClick={() => refMediaRef.current?.click()} disabled={!allConsentGiven || uploadingRef}
+                className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/10 border border-white/10 text-white text-xs font-medium hover:bg-white/15 disabled:opacity-40 transition">
+                {uploadingRef ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />}
+                {uploadingRef ? "Uploading..." : "Upload Reference Images"}
+              </button>
+              <input ref={refMediaRef} type="file" accept="image/*" multiple className="hidden" onChange={e => uploadMedia(e.target.files, true)} />
+            </div>
+
+            {/* Main media */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {MEDIA_TYPES.filter(t => t.id !== "reference").map(t => (
+                <button key={t.id} onClick={() => setCampaign(p => ({ ...p, media_choice: t.id }))}
+                  className={`p-4 rounded-xl border text-center text-sm transition ${campaign.media_choice === t.id ? "border-fuchsia-500 bg-fuchsia-500/10 text-fuchsia-300" : "border-border text-muted-foreground hover:border-fuchsia-500/30"}`}>
+                  <span className="text-2xl block mb-2">{t.icon}</span>
+                  <p className="font-bold text-xs">{t.label}</p>
+                  <p className="text-xs mt-0.5 text-muted-foreground">{t.desc}</p>
+                </button>
+              ))}
+            </div>
+
+            {/* Upload section */}
+            {(campaign.media_choice === "upload" || campaign.media_choice === "reference") && (
+              <div>
+                <label className={lbl}>Upload Media Files (multiple supported)</label>
+                <div onClick={() => mediaRef.current?.click()}
+                  className="border-2 border-dashed border-white/10 rounded-xl p-8 text-center cursor-pointer hover:border-fuchsia-500/40 transition">
+                  {uploadingMedia
+                    ? <Loader2 className="w-8 h-8 mx-auto animate-spin text-fuchsia-400" />
+                    : <><Upload className="w-8 h-8 mx-auto text-muted-foreground/40 mb-2" />
+                      <p className="text-sm text-muted-foreground">Click to upload images or videos</p>
+                      <p className="text-xs text-muted-foreground/60 mt-1">Multiple files supported · JPG, PNG, MP4, MOV</p></>
+                  }
+                </div>
+                <input ref={mediaRef} type="file" accept="image/*,video/*" multiple className="hidden" onChange={e => uploadMedia(e.target.files, false)} />
+              </div>
+            )}
+
+            {/* Generate AI Image */}
+            {campaign.media_choice === "ai_image" && (
+              <div className="space-y-3">
+                <p className="text-sm text-muted-foreground">AI image will be based on your campaign brief and brand identity.</p>
+                {campaign.ref_images.length > 0 && (
+                  <p className="text-xs text-fuchsia-400">✓ {campaign.ref_images.length} reference image(s) will guide the style</p>
+                )}
+                <button onClick={generateImage} disabled={generatingMedia}
+                  className="flex items-center gap-2 px-5 py-3 rounded-xl bg-gradient-to-r from-fuchsia-600 to-purple-600 text-white font-bold hover:opacity-90 disabled:opacity-50">
+                  {generatingMedia ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                  {generatingMedia ? "Generating Image..." : "Generate AI Image"}
+                </button>
+              </div>
+            )}
+
+            {/* Generate AI Video */}
+            {campaign.media_choice === "ai_video" && (
+              <div className="space-y-3">
+                <p className="text-sm text-muted-foreground">AI video will be generated from your campaign brief.</p>
+                {campaign.ref_images.length > 0 && (
+                  <p className="text-xs text-fuchsia-400">✓ {campaign.ref_images.length} reference image(s) will guide the visual style</p>
+                )}
+                <button onClick={generateVideo} disabled={generatingMedia}
+                  className="flex items-center gap-2 px-5 py-3 rounded-xl bg-gradient-to-r from-rose-600 to-red-600 text-white font-bold hover:opacity-90 disabled:opacity-50">
+                  {generatingMedia ? <Loader2 className="w-4 h-4 animate-spin" /> : <Video className="w-4 h-4" />}
+                  {generatingMedia ? "Generating Video..." : "Generate AI Video"}
+                </button>
+              </div>
+            )}
+
+            {/* All generated/uploaded media preview */}
+            {(campaign.media_urls.length > 0 || generatedMedia.length > 0) && (
+              <div>
+                <label className={lbl}>All Media ({campaign.media_urls.length} files)</label>
+                <div className="flex flex-wrap gap-3">
+                  {campaign.media_urls.map((url, i) => {
+                    const isVideo = url.includes("mp4") || url.includes("mov") || url.includes("webm") || generatedMedia.find(m => m.url === url)?.type === "video";
+                    return (
+                      <div key={i} className="relative w-24 h-24 rounded-xl overflow-hidden border border-white/10 group">
+                        {isVideo
+                          ? <video src={url} className="w-full h-full object-cover" />
+                          : <img src={url} alt="" className="w-full h-full object-cover" />
+                        }
+                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition flex items-center justify-center gap-2">
+                          <a href={url} target="_blank" rel="noreferrer" className="p-1.5 bg-white/20 rounded-lg hover:bg-white/30 text-white"><Eye className="w-3 h-3" /></a>
+                          <a href={url} download className="p-1.5 bg-white/20 rounded-lg hover:bg-white/30 text-white"><Download className="w-3 h-3" /></a>
+                          <button onClick={() => setCampaign(p => ({ ...p, media_urls: p.media_urls.filter((_, j) => j !== i) }))}
+                            className="p-1.5 bg-red-500/30 rounded-lg hover:bg-red-500/50 text-white"><X className="w-3 h-3" /></button>
+                        </div>
+                        {isVideo && <div className="absolute bottom-1 left-1 bg-black/60 rounded px-1 text-xs text-white">VIDEO</div>}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── STEP 4: FORMAT ── */}
+        {step === 4 && (
+          <div className="space-y-5">
+            <h2 className="text-lg font-bold text-foreground mb-1">Platform & Format</h2>
             <div>
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 block">Select Platforms</label>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <label className={lbl}>Target Platforms</label>
+              <div className="grid grid-cols-4 gap-2">
                 {PLATFORMS.map(p => (
-                  <button key={p.id} onClick={() => togglePlatform(p.id)}
-                    className={`p-3 rounded-xl border-2 text-center transition ${campaign.platforms.includes(p.id) ? "border-fuchsia-500 bg-fuchsia-500/10" : "border-white/10 bg-white/5 hover:border-white/20"}`}>
-                    <span className="text-2xl">{p.icon}</span>
-                    <p className="text-xs font-bold text-foreground mt-1">{p.label}</p>
-                    {campaign.platforms.includes(p.id) && <Check className="w-3 h-3 text-fuchsia-400 mx-auto mt-1" />}
+                  <button key={p.id} onClick={() => setCampaign(prev => ({
+                    ...prev,
+                    platforms: prev.platforms.includes(p.id) ? prev.platforms.filter(x => x !== p.id) : [...prev.platforms, p.id]
+                  }))}
+                    className={`p-3 rounded-xl border text-xs font-bold transition ${campaign.platforms.includes(p.id) ? "border-fuchsia-500 bg-fuchsia-500/10 text-fuchsia-300" : "border-border text-muted-foreground hover:border-fuchsia-500/30"}`}>
+                    {p.label}
                   </button>
                 ))}
               </div>
             </div>
-            {campaign.platforms.length > 0 && (
-              <div>
-                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 block">Caption & Hashtags</label>
-                <textarea value={campaign.caption||campaign.ai_output} onChange={e=>set("caption",e.target.value)} rows={4}
-                  placeholder="Your post caption..." className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-foreground focus:outline-none focus:border-fuchsia-500 resize-none" />
-                <input value={campaign.hashtags} onChange={e=>set("hashtags",e.target.value)}
-                  placeholder="#hashtags #yourbrand #campaign" className="w-full mt-2 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-foreground focus:outline-none focus:border-fuchsia-500" />
-              </div>
-            )}
-            {/* Format per platform */}
-            {campaign.platforms.filter(p => FORMATS[p]).map(pid => (
-              <div key={pid}>
-                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 block">
-                  {PLATFORMS.find(p=>p.id===pid)?.label} Format
-                </label>
-                <div className="flex gap-2 flex-wrap">
-                  {FORMATS[pid].map(fmt => (
-                    <button key={fmt.id} onClick={() => set("format", fmt.id)}
-                      className={`px-3 py-2 rounded-lg border text-xs font-semibold transition ${campaign.format===fmt.id ? "border-fuchsia-500 bg-fuchsia-500/10 text-fuchsia-300" : "border-white/10 text-muted-foreground hover:border-white/20"}`}>
-                      {fmt.label} <span className="text-muted-foreground font-normal">({fmt.size})</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* STEP 4: Schedule */}
-        {step === 4 && (
-          <div className="space-y-5">
             <div>
-              <h2 className="text-lg font-black text-foreground mb-1">Schedule Your Post</h2>
-              <p className="text-muted-foreground text-sm">Post immediately or schedule for later</p>
+              <label className={lbl}>Caption (final — edit as needed)</label>
+              <textarea value={campaign.ai_output?.slice(0, 2200) || campaign.caption}
+                onChange={e => setCampaign(p => ({ ...p, caption: e.target.value, ai_output: e.target.value }))} rows={8}
+                className={inp + " resize-none"} />
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <button onClick={() => set("scheduled_at", "")}
-                className={`p-5 rounded-xl border-2 text-left transition ${!campaign.scheduled_at ? "border-fuchsia-500 bg-fuchsia-500/10" : "border-white/10 bg-white/5 hover:border-white/20"}`}>
-                <Send className="w-6 h-6 text-fuchsia-400 mb-2" />
-                <p className="font-bold text-foreground">Post Now</p>
-                <p className="text-muted-foreground text-xs mt-1">Publish immediately to selected platforms</p>
-              </button>
-              <button onClick={() => set("scheduled_at", new Date(Date.now()+3600000).toISOString().slice(0,16))}
-                className={`p-5 rounded-xl border-2 text-left transition ${campaign.scheduled_at ? "border-fuchsia-500 bg-fuchsia-500/10" : "border-white/10 bg-white/5 hover:border-white/20"}`}>
-                <Clock className="w-6 h-6 text-fuchsia-400 mb-2" />
-                <p className="font-bold text-foreground">Schedule</p>
-                <p className="text-muted-foreground text-xs mt-1">Pick a future date and time</p>
-              </button>
+            <div>
+              <label className={lbl}>Hashtags</label>
+              <input value={campaign.hashtags} onChange={e => setCampaign(p => ({ ...p, hashtags: e.target.value }))} placeholder="#yourbrand #marketing ..." className={inp} />
             </div>
-            {campaign.scheduled_at && (
-              <div>
-                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 block">Date & Time</label>
-                <input type="datetime-local" value={campaign.scheduled_at} onChange={e=>set("scheduled_at",e.target.value)}
-                  className="bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-foreground focus:outline-none focus:border-fuchsia-500" />
-              </div>
-            )}
           </div>
         )}
 
-        {/* STEP 5: Review & Publish */}
+        {/* ── STEP 5: SCHEDULE ── */}
         {step === 5 && (
           <div className="space-y-5">
-            <div>
-              <h2 className="text-lg font-black text-foreground mb-1">Review & Publish</h2>
-              <p className="text-muted-foreground text-sm">Final check before going live</p>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="bg-white/5 rounded-xl p-4 space-y-3">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Campaign Details</p>
-                <div className="space-y-1.5 text-sm">
-                  <div className="flex justify-between"><span className="text-muted-foreground">Name</span><span className="text-foreground font-medium">{campaign.campaign_name}</span></div>
-                  <div className="flex justify-between"><span className="text-muted-foreground">Brand</span><span className="text-foreground font-medium">{activeBrand?.name || "—"}</span></div>
-                  <div className="flex justify-between"><span className="text-muted-foreground">Content</span><span className="text-foreground font-medium capitalize">{campaign.content_type?.replace(/_/g," ")}</span></div>
-                  <div className="flex justify-between"><span className="text-muted-foreground">Media</span><span className="text-foreground font-medium">{campaign.media_urls.length} file{campaign.media_urls.length!==1?"s":""}</span></div>
-                  <div className="flex justify-between"><span className="text-muted-foreground">Platforms</span><span className="text-foreground font-medium">{campaign.platforms.length} selected</span></div>
-                  <div className="flex justify-between"><span className="text-muted-foreground">Publish</span><span className="text-foreground font-medium">{campaign.scheduled_at ? new Date(campaign.scheduled_at).toLocaleString() : "Immediately"}</span></div>
-                </div>
+            <div className="flex items-center justify-between flex-wrap gap-3">
+              <div>
+                <h2 className="text-lg font-bold text-foreground mb-1">Schedule Posts</h2>
+                <p className="text-sm text-muted-foreground">Plan up to 90 days. Each date creates one post.</p>
               </div>
-              {campaign.media_urls[0] && (
-                <div className="rounded-xl overflow-hidden border border-white/10 aspect-square">
-                  <img src={campaign.media_urls[0]} className="w-full h-full object-cover" alt="Preview" />
-                </div>
-              )}
-            </div>
-            {campaign.ai_output && (
-              <div className="bg-white/5 border border-white/10 rounded-xl p-4">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Content Preview</p>
-                <p className="text-sm text-foreground whitespace-pre-line line-clamp-4">{campaign.caption || campaign.ai_output}</p>
-                {campaign.hashtags && <p className="text-xs text-fuchsia-400 mt-2">{campaign.hashtags}</p>}
+              <div className="flex gap-2">
+                <button onClick={generateScheduleDates} className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/10 text-white text-xs font-bold hover:bg-white/15 transition">
+                  <Calendar className="w-3 h-3" /> Auto-fill 12 Weeks
+                </button>
+                <button onClick={autoFillTopics} disabled={aiTopicLoading || !selectedBrand} className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-fuchsia-600/20 text-fuchsia-400 text-xs font-bold hover:bg-fuchsia-600/30 disabled:opacity-50 transition">
+                  {aiTopicLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+                  AI Fill Topics
+                </button>
+                <button onClick={addScheduleSlot} className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/5 text-muted-foreground text-xs hover:bg-white/10 transition">
+                  <Plus className="w-3 h-3" /> Add Slot
+                </button>
               </div>
-            )}
-            <div className="flex gap-3">
-              <button onClick={saveDraft} className="flex-1 py-3 rounded-xl bg-white/10 text-foreground text-sm font-bold hover:bg-white/15 transition">
-                Save Draft
-              </button>
-              <button onClick={publish} disabled={publishing}
-                className="flex-1 py-3 rounded-xl bg-gradient-to-r from-fuchsia-600 to-purple-600 text-white text-sm font-bold hover:opacity-90 transition disabled:opacity-50 flex items-center justify-center gap-2">
-                {publishing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                {publishing ? "Publishing..." : campaign.scheduled_at ? "Schedule Post" : "Publish Now"}
-              </button>
+            </div>
+            <div className="space-y-2 max-h-96 overflow-y-auto pr-1">
+              {campaign.schedules.map((s, i) => (
+                <div key={i} className="flex items-center gap-3 p-3 bg-white/5 border border-white/10 rounded-xl">
+                  <span className="text-xs font-bold text-muted-foreground w-6">#{i+1}</span>
+                  <input type="date" value={s.date} onChange={e => {
+                    const updated = [...campaign.schedules];
+                    updated[i] = { ...updated[i], date: e.target.value };
+                    setCampaign(p => ({ ...p, schedules: updated }));
+                  }} className="bg-background border border-border rounded-lg px-2 py-1.5 text-sm text-foreground focus:outline-none focus:border-fuchsia-500" />
+                  <input type="time" value={s.time} onChange={e => {
+                    const updated = [...campaign.schedules];
+                    updated[i] = { ...updated[i], time: e.target.value };
+                    setCampaign(p => ({ ...p, schedules: updated }));
+                  }} className="bg-background border border-border rounded-lg px-2 py-1.5 text-sm text-foreground focus:outline-none focus:border-fuchsia-500" />
+                  <input value={s.topic} onChange={e => {
+                    const updated = [...campaign.schedules];
+                    updated[i] = { ...updated[i], topic: e.target.value };
+                    setCampaign(p => ({ ...p, schedules: updated }));
+                  }} placeholder="Post topic (AI fills if blank)" className="flex-1 bg-background border border-border rounded-lg px-2 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-fuchsia-500" />
+                  <button onClick={() => setCampaign(p => ({ ...p, schedules: p.schedules.filter((_, j) => j !== i) }))}
+                    className="p-1.5 rounded-lg hover:bg-red-500/10 text-muted-foreground hover:text-red-400 transition">
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              ))}
             </div>
           </div>
         )}
+
+        {/* ── STEP 6: REVIEW & PUBLISH ── */}
+        {step === 6 && (
+          <div className="space-y-5">
+            <h2 className="text-lg font-bold text-foreground mb-1">Review & Publish</h2>
+            {saved ? (
+              <div className="text-center py-12">
+                <CheckCircle2 className="w-16 h-16 text-emerald-400 mx-auto mb-4" />
+                <p className="text-2xl font-black text-foreground">Campaign Scheduled!</p>
+                <p className="text-muted-foreground text-sm mt-2">{campaign.schedules.filter(s => s.date).length} posts queued</p>
+                <div className="flex gap-3 justify-center mt-6">
+                  <button onClick={() => navigate("/social-hub")} className="px-5 py-2.5 rounded-xl bg-white/10 text-white text-sm font-bold hover:bg-white/15">
+                    View in Social Hub
+                  </button>
+                  <button onClick={() => { setSaved(false); setStep(0); setCampaign({ brand_id:"",campaign_name:"",content_type:"caption",ai_output:"",ai_prompt:"",tone:"Professional",platforms:["instagram"],selected_accounts:[],media_choice:"",media_urls:[],ref_images:[],ref_consent:false,caption:"",hashtags:"",media_type:"image",format:"feed",schedules:[{date:"",time:"09:00",topic:"",auto_topic:false}],notes:"" }); setGeneratedMedia([]); setConsentChecked([false,false,false,false]); }}
+                    className="px-5 py-2.5 rounded-xl bg-fuchsia-600 text-white text-sm font-bold hover:opacity-90">
+                    New Campaign
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <>
+                {/* Summary */}
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <div className="p-4 rounded-xl bg-white/5 border border-white/10 space-y-2">
+                    <p className="text-xs font-bold text-muted-foreground uppercase tracking-wide">Brand & Accounts</p>
+                    <p className="font-bold text-foreground">{selectedBrand?.name || "—"}</p>
+                    <p className="text-xs text-muted-foreground">{campaign.selected_accounts.length} accounts · {campaign.platforms.join(", ")}</p>
+                  </div>
+                  <div className="p-4 rounded-xl bg-white/5 border border-white/10 space-y-2">
+                    <p className="text-xs font-bold text-muted-foreground uppercase tracking-wide">Content</p>
+                    <p className="font-bold text-foreground capitalize">{campaign.content_type.replace(/_/g, " ")}</p>
+                    <p className="text-xs text-muted-foreground line-clamp-2">{campaign.ai_output?.slice(0, 100) || "No content yet"}</p>
+                  </div>
+                  <div className="p-4 rounded-xl bg-white/5 border border-white/10 space-y-2">
+                    <p className="text-xs font-bold text-muted-foreground uppercase tracking-wide">Media</p>
+                    <p className="font-bold text-foreground">{campaign.media_urls.length} file(s)</p>
+                    <div className="flex gap-1 flex-wrap">
+                      {campaign.media_urls.slice(0,4).map((u,i) => <img key={i} src={u} alt="" className="w-8 h-8 rounded object-cover" />)}
+                    </div>
+                  </div>
+                  <div className="p-4 rounded-xl bg-white/5 border border-white/10 space-y-2">
+                    <p className="text-xs font-bold text-muted-foreground uppercase tracking-wide">Schedule</p>
+                    <p className="font-bold text-foreground">{campaign.schedules.filter(s => s.date).length} posts</p>
+                    <p className="text-xs text-muted-foreground">
+                      {campaign.schedules.find(s => s.date)?.date || "No dates set"}
+                      {campaign.schedules.filter(s=>s.date).length > 1 ? ` → ${campaign.schedules.filter(s=>s.date).slice(-1)[0]?.date}` : ""}
+                    </p>
+                  </div>
+                </div>
+                <button onClick={publishCampaign} disabled={saving || campaign.schedules.filter(s=>s.date).length === 0}
+                  className="w-full flex items-center justify-center gap-2 py-4 rounded-xl bg-gradient-to-r from-fuchsia-600 to-purple-600 text-white font-black text-lg hover:opacity-90 disabled:opacity-50 transition">
+                  {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
+                  {saving ? "Scheduling..." : `Schedule ${campaign.schedules.filter(s=>s.date).length} Post${campaign.schedules.filter(s=>s.date).length !== 1 ? "s" : ""}`}
+                </button>
+              </>
+            )}
+          </div>
+        )}
+
       </div>
 
-      {/* Nav buttons */}
-      {step < 5 && (
+      {/* Navigation */}
+      {!saved && (
         <div className="flex justify-between">
-          <button onClick={() => setStep(s => Math.max(0, s-1))} disabled={step===0}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white/5 text-muted-foreground text-sm font-semibold hover:bg-white/10 transition disabled:opacity-30">
+          <button onClick={() => setStep(s => Math.max(0, s - 1))} disabled={step === 0}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm font-medium hover:bg-white/10 disabled:opacity-30 transition">
             <ChevronLeft className="w-4 h-4" /> Back
           </button>
-          <button onClick={() => setStep(s => Math.min(5, s+1))} disabled={!canNext()}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-fuchsia-600 to-purple-600 text-white text-sm font-bold hover:opacity-90 transition disabled:opacity-40">
-            {step === 4 ? "Review" : "Continue"} <ChevronRight className="w-4 h-4" />
-          </button>
-        </div>
-      )}
-
-      {/* Consent Modal */}
-      {showConsentModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-          <div className="bg-[#111118] border border-amber-500/30 rounded-2xl w-full max-w-md">
-            <div className="p-6 border-b border-white/10">
-              <div className="flex items-center gap-3">
-                <Shield className="w-6 h-6 text-amber-400" />
-                <h2 className="text-lg font-black text-foreground">Consent & Safety Agreement</h2>
-              </div>
-              <p className="text-muted-foreground text-sm mt-2">Before uploading reference images of people, you must confirm the following:</p>
-            </div>
-            <div className="p-6 space-y-3">
-              {CONSENT_RULES.map((rule, i) => (
-                <label key={i} className="flex items-start gap-3 cursor-pointer">
-                  <input type="checkbox" checked={consentChecked[i]} onChange={e=>{const a=[...consentChecked];a[i]=e.target.checked;setConsentChecked(a);}}
-                    className="mt-0.5 accent-fuchsia-500 w-4 h-4 flex-shrink-0" />
-                  <span className="text-sm text-foreground">{rule}</span>
-                </label>
-              ))}
-            </div>
-            <div className="flex gap-3 p-6 border-t border-white/10">
-              <button onClick={() => setShowConsentModal(false)} className="flex-1 py-2.5 rounded-xl bg-white/5 text-muted-foreground text-sm font-semibold">Cancel</button>
-              <button onClick={grantConsent} disabled={!allConsented}
-                className="flex-1 py-2.5 rounded-xl bg-amber-500 text-black text-sm font-bold hover:bg-amber-400 transition disabled:opacity-40">
-                I Agree & Continue
-              </button>
-            </div>
-          </div>
+          {step < STEPS.length - 1 ? (
+            <button onClick={() => canNext() && setStep(s => s + 1)} disabled={!canNext()}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-fuchsia-600 to-purple-600 text-white font-bold text-sm hover:opacity-90 disabled:opacity-50 transition">
+              Next <ChevronRight className="w-4 h-4" />
+            </button>
+          ) : null}
         </div>
       )}
     </div>
