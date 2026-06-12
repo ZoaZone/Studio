@@ -1,8 +1,39 @@
 import React from 'react';
-import { Link , useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useState, useEffect, useRef } from "react";
 import FeatureDemoModal from "@/components/FeatureDemoModal";
-import { Sparkles, Megaphone, Share2, GitBranch, UserPlus, Globe, BarChart3, Zap, ArrowRight, Check, Star, Play, Bot, Image, FileText, Mail, Phone, Instagram, Youtube, Menu, X, Send, Loader2, MessageSquare, Mic, MicOff, Volume2, VolumeX, MessageCircle } from "lucide-react";
+import { 
+  Sparkles, 
+  Megaphone, 
+  Share2, 
+  GitBranch, 
+  UserPlus, 
+  Globe, 
+  BarChart3, 
+  Zap, 
+  ArrowRight, 
+  Check, 
+  Star, 
+  Play, 
+  Bot, 
+  Image, 
+  FileText, 
+  Mail, 
+  Phone, 
+  Instagram, 
+  Youtube, 
+  Menu, 
+  X, 
+  Send, 
+  Loader2, 
+  MessageSquare, 
+  Mic, 
+  MicOff, 
+  Volume2, 
+  VolumeX, 
+  MessageCircle,
+  Video
+} from "lucide-react";
 
 const M_LOGO = "https://media.base44.com/images/public/69b1f1d60b1fb9d791fddc64/d1aa347a6_generated_image.png";
 
@@ -28,10 +59,6 @@ const TESTIMONIALS = [
   { name: "James K.", role: "Agency Owner", text: "Managing 20 clients from one dashboard. The funnel builder alone saved us 10 hours a week.", rating: 5 },
   { name: "Priya R.", role: "E-commerce Founder", text: "The AI media generation is insane. Professional ad creatives in minutes, not days.", rating: 5 },
 ];
-
-// ─────────────────────────────────────────────────────────────────
-// SreeFloatBot — floating voice+text chatbot with mic, speaker, site knowledge
-// (icons imported at top of file)
 
 const SITE_KNOWLEDGE = `
 You are Sree, the AI assistant for media.aevoice.ai — an AI-powered marketing OS platform.
@@ -100,7 +127,6 @@ function SreeFloatBot({ accentColor }) {
   React.useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs]);
   React.useEffect(() => { if (!open && msgs.length > 1) setUnread(u => u + 1); }, [msgs]);
   React.useEffect(() => { if (open) setUnread(0); }, [open]);
-  // Cancel speech when closed
   React.useEffect(() => { if (!open) window.speechSynthesis?.cancel(); }, [open]);
 
   const speak = (text) => {
@@ -164,14 +190,12 @@ function SreeFloatBot({ accentColor }) {
   };
 
   return React.createElement(React.Fragment, null,
-    // CSS animations
     React.createElement("style", null,
       `@keyframes sree-bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
        @keyframes sree-pulse-ring{0%{transform:scale(1);opacity:0.8}100%{transform:scale(1.6);opacity:0}}
        .sree-mic-pulse::before{content:'';position:absolute;inset:-6px;border-radius:50%;background:${ac}55;animation:sree-pulse-ring 1s ease-out infinite;}`
     ),
 
-    // ── FAB ──
     React.createElement("button", {
       onClick: () => setOpen(o => !o),
       style: {
@@ -180,7 +204,7 @@ function SreeFloatBot({ accentColor }) {
         cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
         background: `linear-gradient(135deg, ${ac}, ${ac}bb)`,
         boxShadow: `0 6px 28px ${ac}55, 0 2px 8px rgba(0,0,0,0.4)`,
-        transition: "transform 0.2s", position: "fixed",
+        transition: "transform 0.2s",
       },
       onMouseEnter: e => { e.currentTarget.style.transform = "scale(1.1)"; },
       onMouseLeave: e => { e.currentTarget.style.transform = "scale(1)"; },
@@ -198,7 +222,6 @@ function SreeFloatBot({ accentColor }) {
       }, unread)
     ),
 
-    // ── Chat panel ──
     open && React.createElement("div", {
       style: {
         position: "fixed", bottom: 92, right: 24, zIndex: 9998,
@@ -212,7 +235,6 @@ function SreeFloatBot({ accentColor }) {
         fontFamily: "Inter, system-ui, sans-serif",
       }
     },
-      // Header
       React.createElement("div", {
         style: {
           display: "flex", alignItems: "center", gap: 10,
@@ -228,7 +250,6 @@ function SreeFloatBot({ accentColor }) {
           React.createElement("p", { style: { margin: 0, fontSize: 13, fontWeight: 700, color: "white" } }, "Sree AI"),
           React.createElement("p", { style: { margin: 0, fontSize: 10, color: "#10b981" } }, "● media.aevoice.ai · Online")
         ),
-        // Speaker toggle
         React.createElement("button", {
           onClick: toggleSpeaker,
           title: speakerOn ? "Mute speaker" : "Unmute speaker",
@@ -239,7 +260,6 @@ function SreeFloatBot({ accentColor }) {
         ),
       ),
 
-      // Messages
       React.createElement("div", {
         style: { flex: 1, overflowY: "auto", padding: "12px 10px", display: "flex", flexDirection: "column", gap: 8, minHeight: 0 }
       },
@@ -280,11 +300,9 @@ function SreeFloatBot({ accentColor }) {
         React.createElement("div", { ref: endRef })
       ),
 
-      // Input row
       React.createElement("div", {
         style: { padding: "8px 10px 12px", borderTop: "1px solid rgba(255,255,255,0.06)", display: "flex", gap: 6, flexShrink: 0, alignItems: "center" }
       },
-        // Mic button with pulse ring when listening
         React.createElement("div", { style: { position: "relative", flexShrink: 0 } },
           listening && React.createElement("span", { className: "sree-mic-pulse" }),
           React.createElement("button", {
@@ -300,7 +318,6 @@ function SreeFloatBot({ accentColor }) {
             : React.createElement(Mic, { size: 16, color: "white" })
           )
         ),
-        // Text input
         React.createElement("input", {
           value: input,
           onChange: e => setInput(e.target.value),
@@ -312,7 +329,6 @@ function SreeFloatBot({ accentColor }) {
             borderRadius: 10, padding: "8px 10px", color: "white", fontSize: 12, outline: "none", fontFamily: "inherit",
           }
         }),
-        // Send button
         React.createElement("button", {
           onClick: () => sendMsg(),
           disabled: !input.trim() || loading,
@@ -328,12 +344,23 @@ export default function Home() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [showDemo, setShowDemo] = useState(false);
+  const videoRef = useRef(null);
 
   useEffect(() => {
     const handler = () => setScrolled(window.scrollY > 40);
     window.addEventListener("scroll", handler);
     return () => window.removeEventListener("scroll", handler);
   }, []);
+
+  const handlePlayDemo = () => {
+    setShowDemo(true);
+    setTimeout(() => {
+      if (videoRef.current) {
+        videoRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        videoRef.current.play().catch(err => console.log("Autoplay context blocked:", err));
+      }
+    }, 150);
+  };
 
   return (
     <>
@@ -374,13 +401,14 @@ export default function Home() {
       </nav>
 
       {/* HERO */}
-      <section className="relative min-h-screen flex items-center justify-center px-6 pt-16">
+      <section className="relative min-h-screen flex flex-col items-center justify-center px-6 pt-24 pb-12">
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[800px] h-[800px] bg-fuchsia-500/8 rounded-full blur-[120px]" />
           <div className="absolute top-1/3 left-1/4 w-[400px] h-[400px] bg-purple-500/6 rounded-full blur-[80px]" />
           <div className="absolute bottom-1/4 right-1/4 w-[300px] h-[300px] bg-pink-500/6 rounded-full blur-[80px]" />
         </div>
-        <div className="relative max-w-5xl mx-auto text-center">
+        
+        <div className="relative max-w-5xl mx-auto text-center z-10">
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-fuchsia-500/30 bg-fuchsia-500/10 text-fuchsia-300 text-xs font-medium mb-8">
             <Sparkles className="w-3.5 h-3.5" /> AI-Powered Marketing OS — media.aevoice.ai
           </div>
@@ -395,16 +423,42 @@ export default function Home() {
           <p className="text-lg md:text-xl text-white/50 max-w-2xl mx-auto mb-10 leading-relaxed">
             AI media creation, bulk SMS/WhatsApp/email, social scheduling, funnel builder, lead capture, and follow-up automation — all in one platform.
           </p>
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+          
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-12">
             <Link to="/free-trial" className="flex items-center gap-2 px-8 py-4 rounded-2xl bg-gradient-to-r from-fuchsia-500 to-purple-600 text-white font-bold text-base hover:opacity-90 transition-opacity shadow-2xl shadow-fuchsia-500/30">
               Start Free Trial <ArrowRight className="w-5 h-5" />
             </Link>
-            <button onClick={() => setShowDemo(true)} className="flex items-center gap-2 px-8 py-4 rounded-2xl border border-white/15 text-white/80 font-medium text-base hover:border-white/30 hover:text-white transition-all">
+            <button onClick={handlePlayDemo} className="flex items-center gap-2 px-8 py-4 rounded-2xl border border-white/15 text-white/80 font-medium text-base hover:border-white/30 hover:text-white transition-all">
               <Play className="w-4 h-4" /> Watch Demo
             </button>
           </div>
-          {showDemo && <FeatureDemoModal onClose={() => setShowDemo(false)} />}
+          
           <p className="text-xs text-white/30 mt-4">No credit card required · 14-day free trial · Cancel anytime</p>
+
+          {/* DYNAMIC HIGH-PERFORMANCE MARKETING DEMO PLAYER */}
+          {showDemo && (
+            <div className="mt-12 max-w-4xl mx-auto p-3 bg-white/5 border border-white/10 rounded-2xl shadow-2xl backdrop-blur-md animate-in fade-in zoom-in-95 duration-300">
+              <div className="relative rounded-xl overflow-hidden bg-black aspect-video border border-white/5">
+                <video 
+                  ref={videoRef}
+                  controls 
+                  playsInline
+                  className="w-full h-full object-cover"
+                  src="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4"
+                >
+                  Your browser does not support the video tag.
+                </video>
+              </div>
+              <div className="p-4 text-center">
+                <h4 className="text-white font-bold text-base flex items-center justify-center gap-2">
+                  <Video className="w-4 h-4 text-fuchsia-400" /> Auto-Pilot Social Console Walkthrough
+                </h4>
+                <p className="text-white/60 text-xs mt-1 max-w-xl mx-auto">
+                  See how the Unified Engine processes brand logo ingestions, analyzes websites, applies "No Caption" rules, and renders instantly.
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* Platform logos */}
           <div className="mt-16 flex items-center justify-center gap-6 flex-wrap opacity-40">
@@ -533,10 +587,10 @@ export default function Home() {
             <Link to="/agency-enquiry" className="hover:text-purple-400 font-semibold text-white/50 transition-colors">🏢 Agency Enquiry</Link>
           </div>
         </div>
-      <p className="text-center text-xs text-slate-600 mt-4">Part of AEVOICE.AI — The ultimate business technology.</p>
-</footer>
+        <p className="text-center text-xs text-slate-600 mt-4">Part of AEVOICE.AI — The ultimate business technology.</p>
+      </footer>
     </div>
-      <SreeFloatBot accentColor="#d946ef" />
-  </>
+    <SreeFloatBot accentColor="#d946ef" />
+    </>
   );
 }
