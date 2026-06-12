@@ -1,7 +1,7 @@
-import { useState, useRef } from "react";
+import React, { useState, useRef } from "react";
 import { useOutletContext } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { base44 } from "@/api/base44Client";
+import { base44 } from "@api/base44Client";
 import {
   Building2, Plus, Globe, Mail, Phone, Users, Mic2, Pencil, Trash2,
   CheckCircle2, Star, X, Loader2, Zap, Upload, ImagePlus, Share2,
@@ -59,7 +59,6 @@ export default function BrandManager() {
   };
   const [form, setForm] = useState(emptyForm);
 
-  // Social accounts form for the brand
   const [newAccount, setNewAccount] = useState({ platform:"instagram", account_name:"", username:"", password:"", access_token:"", connection_method:"credentials" });
   const [addingAccount, setAddingAccount] = useState(false);
   const [savingAccount, setSavingAccount] = useState(false);
@@ -136,10 +135,8 @@ export default function BrandManager() {
   };
 
   const brandAccounts = (brandId) => allAccounts.filter(a => a.brand_id === brandId);
-
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
-
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
@@ -182,9 +179,7 @@ export default function BrandManager() {
             const isExpanded = expandedId === b.id;
             return (
               <div key={b.id} className="bg-card border border-border rounded-2xl overflow-hidden">
-                {/* Brand header row */}
                 <div className="flex items-center gap-4 p-5">
-                  {/* Logo / Color swatch */}
                   <div className="w-14 h-14 rounded-xl flex-shrink-0 flex items-center justify-center overflow-hidden border border-white/10"
                     style={{ background: b.primary_color || "#7c3aed" }}>
                     {b.logo_url
@@ -192,7 +187,6 @@ export default function BrandManager() {
                       : <span className="text-2xl font-black text-white">{b.name?.[0]?.toUpperCase()}</span>
                     }
                   </div>
-                  {/* Info */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className="font-bold text-foreground text-lg leading-none">{b.name}</p>
@@ -200,7 +194,6 @@ export default function BrandManager() {
                     </div>
                     {b.tagline && <p className="text-muted-foreground text-sm mt-0.5 truncate">{b.tagline}</p>}
                     <div className="flex items-center gap-3 mt-2">
-                      {/* Color swatches */}
                       <div className="flex gap-1">
                         {[b.primary_color, b.secondary_color, b.accent_color].map((c, i) =>
                           c ? <div key={i} className="w-4 h-4 rounded-full border border-white/20" style={{ background: c }} /> : null
@@ -209,7 +202,6 @@ export default function BrandManager() {
                       <span className="text-xs text-muted-foreground">{accs.length} account{accs.length !== 1 ? "s" : ""} connected</span>
                     </div>
                   </div>
-                  {/* Actions */}
                   <div className="flex gap-2 flex-shrink-0">
                     <button onClick={() => openEdit(b)} className="p-2 rounded-lg bg-white/5 hover:bg-white/10 text-muted-foreground hover:text-white transition">
                       <Pencil className="w-4 h-4" />
@@ -224,7 +216,6 @@ export default function BrandManager() {
                   </div>
                 </div>
 
-                {/* Expanded — social accounts */}
                 {isExpanded && (
                   <div className="border-t border-border p-5 space-y-4 bg-white/[0.02]">
                     <div className="flex items-center justify-between">
@@ -237,7 +228,6 @@ export default function BrandManager() {
                       </button>
                     </div>
 
-                    {/* Connected accounts list */}
                     {accs.length === 0 && !addingAccount && (
                       <p className="text-xs text-muted-foreground text-center py-4">No social accounts linked yet. Add one to start posting.</p>
                     )}
@@ -264,11 +254,9 @@ export default function BrandManager() {
                       </div>
                     )}
 
-                    {/* Add account form */}
                     {addingAccount && (
                       <div className="bg-background border border-border rounded-xl p-4 space-y-3">
                         <p className="text-xs font-bold text-foreground">Link a Social Account</p>
-                        {/* Platform pills */}
                         <div className="flex flex-wrap gap-2">
                           {PLATFORMS.map(p => (
                             <button key={p.id} onClick={() => setNewAccount(a => ({ ...a, platform: p.id }))}
@@ -277,7 +265,6 @@ export default function BrandManager() {
                             </button>
                           ))}
                         </div>
-                        {/* Connection method */}
                         <div className="grid grid-cols-3 gap-2">
                           {[{id:"credentials",icon:"🔑",l:"Login"},{id:"api",icon:"🔌",l:"API Token"},{id:"webhook",icon:"🔗",l:"Webhook"}].map(m => (
                             <button key={m.id} onClick={() => setNewAccount(a => ({ ...a, connection_method: m.id }))}
@@ -328,11 +315,10 @@ export default function BrandManager() {
         </div>
       )}
 
-      {/* ── CREATE / EDIT MODAL ──────────────────────────────────────────────── */}
+      {/* MODAL WORKSPACE FORM */}
       {showForm && (
         <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-[#1a1a2e] border border-white/10 rounded-2xl w-full max-w-2xl shadow-2xl my-4">
-            {/* Modal header */}
             <div className="flex items-center justify-between p-6 border-b border-white/10">
               <div>
                 <h2 className="text-lg font-black text-white">{editing ? "Edit Brand" : "Create New Brand"}</h2>
@@ -343,7 +329,6 @@ export default function BrandManager() {
               </button>
             </div>
 
-            {/* Step indicator */}
             <div className="flex px-6 pt-4 gap-2">
               {STEPS.map((s, i) => (
                 <button key={s} onClick={() => i < formStep + 1 && setFormStep(i)}
@@ -353,10 +338,7 @@ export default function BrandManager() {
               ))}
             </div>
 
-            {/* Step content */}
             <div className="p-6 space-y-4">
-
-              {/* Step 0 — Brand Details */}
               {formStep === 0 && (
                 <div className="space-y-4">
                   <div>
@@ -390,7 +372,6 @@ export default function BrandManager() {
                       <input value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} placeholder="+1 555 000 0000" className={inp} />
                     </div>
                   </div>
-                  {/* Logo upload */}
                   <div>
                     <label className={lbl + " text-slate-400"}>Brand Logo</label>
                     <div className="flex items-center gap-4">
@@ -422,7 +403,6 @@ export default function BrandManager() {
                 </div>
               )}
 
-              {/* Step 1 — Colors & Voice */}
               {formStep === 1 && (
                 <div className="space-y-5">
                   <div>
@@ -462,7 +442,6 @@ export default function BrandManager() {
                 </div>
               )}
 
-              {/* Step 2 — Social Accounts preview (added after saving) */}
               {formStep === 2 && (
                 <div className="space-y-4">
                   <div className="p-4 rounded-xl bg-fuchsia-500/5 border border-fuchsia-500/20 text-sm text-fuchsia-300 text-center">
@@ -481,7 +460,6 @@ export default function BrandManager() {
                 </div>
               )}
 
-              {/* Step 3 — Review */}
               {formStep === 3 && (
                 <div className="space-y-4">
                   <div className="flex items-center gap-4 p-4 rounded-xl bg-white/5 border border-white/10">
@@ -511,7 +489,6 @@ export default function BrandManager() {
               )}
             </div>
 
-            {/* Modal footer */}
             <div className="flex gap-3 p-6 border-t border-white/10 justify-between">
               <button onClick={() => formStep > 0 ? setFormStep(s => s - 1) : setShowForm(false)}
                 className="px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm font-medium hover:bg-white/10 transition">
