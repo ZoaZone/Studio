@@ -1,12 +1,19 @@
 import React, { useState } from "react";
 import { base44 } from "../api/base44Client";
+import { Sparkles, Video, Layers, FileText, Download, Upload } from "lucide-react";
 
 export default function MediaStudio() {
   const [loading, setLoading] = useState(false);
   const [project, setProject] = useState(null);
-  const [formData, setFormData] = useState({ creativeVision: "", format: "16:9", durationSeconds: 60 });
+  const [formData, setFormData] = useState({ 
+    creativeVision: "", 
+    format: "16:9", 
+    durationSeconds: 60 
+  });
 
-  const handleInputChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
+  const handleInputChange = (e) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
 
   const handleExecutePipeline = async () => {
     setLoading(true);
@@ -37,7 +44,7 @@ export default function MediaStudio() {
           name="creativeVision" 
           value={formData.creativeVision} 
           onChange={handleInputChange} 
-          style={{ width: "100%", height: "150px", padding: "12px", borderRadius: "8px" }} 
+          style={{ width: "100%", height: "150px", padding: "12px", borderRadius: "8px", border: "1px solid #ccc" }} 
         />
       </div>
 
@@ -51,7 +58,7 @@ export default function MediaStudio() {
 
       <div style={{ marginTop: "30px" }}>
         {project ? (
-          <video src={project.videoUrl} controls style={{ width: "100%", borderRadius: "8px" }} />
+          <video src={project.videoUrl} controls style={{ width: "100%", borderRadius: "8px", background: "#000" }} />
         ) : (
           <p style={{ color: "#666" }}>
             {loading ? "AI is working... (Check Console if this takes > 10s)" : "Ready to generate."}
