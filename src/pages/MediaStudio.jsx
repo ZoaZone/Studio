@@ -308,11 +308,11 @@ export default function MediaStudio() {
         setResult({ type: "video", url: clipUrls[0], clipUrls, captions: typeof captions === "string" ? captions : "" });
       } else if (isVisual) {
         // ── Real Image Generation ──────────────────────────────────────────
-        const styleHint = activeType === "thumbnail"
-          ? `YouTube thumbnail style, bold text overlay, high contrast, eye-catching`
-          : `Professional marketing ${form.platform} image`;
+                const styleHint = activeType === "thumbnail"
+          ? "YouTube thumbnail style, bold text overlay, high contrast, eye-catching"
+          : "Professional marketing " + form.platform + " image";
 
-        const enhancedPrompt = `${form.prompt}. ${styleHint}. ${form.tone} tone. Optimized for ${form.platform}. High quality, crisp, commercial photography style.`;
+                const enhancedPrompt = form.prompt + ". " + styleHint + ". " + form.tone + " tone. Optimized for " + form.platform + ". High quality, crisp, commercial photography style.";
 
         const imageUrls = uploadedFiles.filter(f => f.type.startsWith("image/")).map(f => f.url);
         // When reference images are provided, explicitly instruct the model to replicate the subject
