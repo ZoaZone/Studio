@@ -91,20 +91,7 @@ function buildPrompt(type, form) {
       return `Write a WhatsApp broadcast message. ${base} Use line breaks and a few relevant emojis. Max 300 chars. Include CTA and opt-out line.`;
     case "blog_post":
       return `Write a complete SEO-optimized blog post. ${base}\nInclude:\n- SEO Title\n- Meta Description (155 chars)\n- H1, H2, H3 headings\n- 600-900 word body\n- Internal link placeholders\n- [...]
-    case "video_script":
-      return `Write a full video script for a ${form.videoStyle || "short-form"} video (${form.videoDuration || "60 seconds"}). ${base}\nFormat as:\nHOOK (0-3s): ...\nINTRO (3-8s): ...\n[Scene-by-[...]
-    case "video_storyboard":
-      return `Create a detailed storyboard for a ${form.videoDuration || "60 seconds"} ${form.videoStyle || "social media"} video. ${base}\nFor each shot provide:\nSHOT [N]: [angle]\nVISUAL: [what[...]
-    case "thumbnail":
-      return `Design directions for a ${form.platform} video thumbnail. ${base}\nProvide:\nCONCEPT: ...\nBACKGROUND: ...\nTEXT OVERLAY: ...\nCOLOR PALETTE: ...\nEMOTION/EXPRESSION: ...\nFONT STYLE[...]
-    case "brand_voice":
-      return `Create a brand voice guide for: "${form.prompt}".\nInclude:\n- Brand Personality (3-5 adjectives)\n- Tone of Voice\n- Words We Use / Words We Avoid\n- Sample Taglines (5)\n- Sample [...]
-    case "brand_bio":
-      return `Write platform bios for "${form.prompt}". Tone: ${form.tone}.\nProvide:\nINSTAGRAM BIO (150 chars): ...\nTWITTER/X BIO (160 chars): ...\nLINKEDIN SUMMARY (300 chars): ...\nTIKTOK BI[...]
-    case "press_release":
-      return `Write a professional press release. ${base}\nFormat as:\nFOR IMMEDIATE RELEASE\n\nHEADLINE: ...\nSUBHEADLINE: ...\nCITY, DATE — [opening paragraph - who, what, when, where, why]\n[...]
-    default:
-      return `Generate ${type} content. ${base}`;
+    case "video_script": return `Write a full video script for a ${form.videoStyle || "short-form"} video (${form.videoDuration || "60 seconds"}). ${base}`;
   }
 }
 
