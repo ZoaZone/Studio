@@ -1,6 +1,7 @@
 import React, { useState, useRef } from "react";
 import { useOutletContext } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+// Standard relative path module fallback mapping
 import { base44 } from "../api/base44Client";
 import {
   Building2, Plus, Globe, Mail, Phone, Users, Mic2, Pencil, Trash2,
@@ -85,14 +86,15 @@ export default function BrandManager() {
     setFormStep(0); setShowForm(true);
   };
 
-  // FIXED: Explicit structural destructuring with URL fallback checks to bypass upload failures
+  // FIXED: Converted to use standard native Base44 core upload payload schemas
   const uploadLogo = async (file) => {
     if (!file) return;
     setUploading(true);
     try {
-      const res = await base44.storage.uploadFile(file);
-      const targetUrl = typeof res === "string" ? res : res?.url || res?.file_url || "";
-      if (!targetUrl) throw new Error("Invalid asset response structure payload.");
+      const res = await base44.integrations.Core.UploadFile({ file });
+      const targetUrl = res?.file_url || res?.url || (typeof res === "string" ? res : "");
+      
+      if (!targetUrl) throw new Error("Could not parse file URL from upload response.");
       
       setForm(f => ({ ...f, logo_file_url: targetUrl, logo_url: targetUrl }));
     } catch (e) { 
@@ -140,7 +142,7 @@ export default function BrandManager() {
   };
 
   const brandAccounts = (brandId) => allAccounts.filter(a => a.brand_id === brandId);
-return (
+  return (
     <div className="space-y-6 max-w-5xl mx-auto">
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
@@ -516,4 +518,4 @@ return (
       )}
     </div>
   );
-}  
+}
