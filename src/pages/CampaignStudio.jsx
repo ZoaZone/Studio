@@ -124,19 +124,18 @@ export default function CampaignStudio() {
       return;
     }
     setGenerating(true);
-    
+
     const brand = selectedBrand;
     const brandContext = brand
-      ? `\n\nBrand: ${brand.name}. Voice: ${brand.brand_voice || "Professional"}. Audience: ${brand.target_audience || "general audience"}. Industry: ${brand.industry || ""}. Tagline: ${brand.tagline || ""}.`
+      ? `\n\nBrand: ${brand.name}. Voice: ${brand.brand_voice || "Professional"}. Audience: ${brand.target_audience || "general audience"}.`
       : "";
-      
+
     const isCaption = ["caption", "ad_copy", "whatsapp"].includes(campaign.content_type);
     const promptText = isCaption
-      ? `Write a ${campaign.tone} ${campaign.content_type.replace(/_/g, " ")} for ${campaign.platforms[0] || "Instagram"}.\n\nTopic: ${campaign.ai_prompt}${brandContext}\n\nFormat your response EXACTLY like this:\nCAPTION:\n[Write the caption here with correct grammar and spelling. No markdown headers like ### — just clean text.]\n\nHASHTAGS:\n[20 relevant hashtags starting with #]`
+      ? `Write a ${campaign.tone} ${campaign.content_type} for ${campaign.platforms[0] || "Instagram"}.\n\nTopic: ${campaign.ai_prompt}${brandContext}`
       : `${campaign.ai_prompt}${brandContext}`;
 
     try {
-      // Reconstructed API call that was sliced in half
       const res = await fetch("/api/functions/generateMediaContent", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -148,6 +147,15 @@ export default function CampaignStudio() {
         })
       }).then(r => r.json());
 
+      const raw = res?.content || res?.data?.content || "";
+      setCampaign(p => ({ ...p, generated_content: raw }));
+    } catch (error) {
+      console.error("Content generation failed:", error);
+      alert("Failed to generate content.");
+    }
+    setGenerating(false);
+  };
+  
       const raw = res?.content || res?.data?.content || res?.text || res?.data?.text || "";
       const text = typeof raw === "string" ? raw : JSON.stringify(raw);
       
