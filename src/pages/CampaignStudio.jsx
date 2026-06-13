@@ -1,97 +1,81 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useOutletContext, useNavigate } from "react-router-dom";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
-import { Building2, Sparkles, Loader2, ChevronRight, ChevronLeft, Check, X, Upload } from "lucide-react";
-
-const STEPS = [
-  { id: "brand", label: "Brand" },
-  { id: "accounts", label: "Accounts" },
-  { id: "content", label: "Content" },
-  { id: "media", label: "Media" },
-  { id: "schedule", label: "Schedule" }
-];
+import { Sparkles, Loader2, Wand2, Palette, ChevronRight, CheckCircle2 } from "lucide-react";
 
 export default function CampaignStudio() {
-  const navigate = useNavigate();
   const [step, setStep] = useState(0);
   const [generating, setGenerating] = useState(false);
-  const [campaign, setCampaign] = useState({
-    brand_id: "", campaign_name: "", content_type: "caption", ai_output: "", ai_prompt: "",
-    tone: "Professional", platforms: ["instagram"], media_urls: []
-  });
-
+  const [campaign, setCampaign] = useState({ brand_id: "", ai_prompt: "", ai_output: "" });
   const { data: brands = [] } = useQuery({ queryKey: ["brands"], queryFn: () => base44.entities.Brand.list() });
-  const selectedBrand = brands.find(b => b.id === campaign.brand_id);
 
   const generateContent = async () => {
-    if (!campaign.ai_prompt.trim()) { alert("Enter a topic!"); return; }
+    if (!campaign.ai_prompt.trim()) return;
     setGenerating(true);
     try {
       const res = await fetch("/api/functions/generateMediaContent", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type: campaign.content_type,
-          platform: campaign.platforms[0],
-          tone: campaign.tone,
-          prompt: campaign.ai_prompt,
-        })
+        body: JSON.stringify({ prompt: campaign.ai_prompt })
       }).then(r => r.json());
-      setCampaign(p => ({ ...p, ai_output: res?.content || JSON.stringify(res) }));
-    } catch (e) { alert("Failed"); }
-    setGenerating(false);
-  };
-
-  const runAutoPipeline = async () => {
-    setGenerating(true);
-    await generateContent();
-    setGenerating(false);
-    alert("Pipeline complete!");
+      setCampaign(p => ({ ...p, ai_output: res?.content || "No content generated." }));
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setGenerating(false);
+    }
   };
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6 p-6">
-      <h1 className="text-2xl font-black flex items-center gap-2">
-        <Sparkles className="text-fuchsia-400" /> Campaign Studio
-      </h1>
+    <div className="min-h-screen bg-neutral-950 text-white p-8">
+      {/* Modern Header */}
+      <div className="max-w-5xl mx-auto mb-10">
+        <h1 className="text-4xl font-black bg-clip-text text-transparent bg-gradient-to-r from-fuchsia-400 to-purple-600 flex items-center gap-3">
+          <Sparkles className="text-fuchsia-500" /> Campaign Studio
+        </h1>
+        <p className="text-neutral-400 mt-2 text-lg">Your AI-powered marketing command center.</p>
+      </div>
 
-      <div className="bg-card border rounded-2xl p-6 min-h-[400px]">
-        {step === 0 && (
-          <div className="space-y-4">
-            <h2 className="text-lg font-bold">Select Brand</h2>
-            <div className="grid grid-cols-2 gap-3">
+      <div className="max-w-5xl mx-auto grid grid-cols-12 gap-8">
+        {/* Left Panel - Control */}
+        <div className="col-span-12 md:col-span-5 space-y-6">
+          <div className="bg-neutral-900 border border-neutral-800 p-6 rounded-3xl shadow-2xl">
+            <h3 className="text-xl font-bold mb-4 flex items-center gap-2"><Palette className="text-fuchsia-500" /> Select Brand</h3>
+            <div className="space-y-3">
               {brands.map(b => (
                 <button key={b.id} onClick={() => setCampaign(p => ({ ...p, brand_id: b.id }))}
-                  className={`p-4 border rounded-xl ${campaign.brand_id === b.id ? "border-fuchsia-500 bg-fuchsia-500/10" : ""}`}>
+                  className={`w-full p-4 rounded-2xl border transition-all ${campaign.brand_id === b.id ? "border-fuchsia-500 bg-fuchsia-500/10" : "border-neutral-800 hover:border-neutral-600 bg-neutral-950"}`}>
                   {b.name}
                 </button>
               ))}
             </div>
           </div>
-        )}
+        </div>
 
-        {step === 2 && (
-          <div className="space-y-4">
-            <h2 className="text-lg font-bold">Content Generation</h2>
-            <textarea value={campaign.ai_prompt} onChange={e => setCampaign(p => ({ ...p, ai_prompt: e.target.value }))}
-              className="w-full p-3 border rounded-xl" placeholder="Describe your topic..." />
-            <div className="flex gap-2">
-              <button onClick={generateContent} className="px-4 py-2 bg-fuchsia-600 text-white rounded-xl font-bold">
-                {generating ? <Loader2 className="animate-spin" /> : "Generate"}
-              </button>
-              <button onClick={runAutoPipeline} className="px-4 py-2 bg-purple-600 text-white rounded-xl font-bold">
-                Run Auto Pipeline
-              </button>
-            </div>
-            {campaign.ai_output && <pre className="p-4 bg-muted rounded-xl text-sm">{campaign.ai_output}</pre>}
+        {/* Right Panel - Generator */}
+        <div className="col-span-12 md:col-span-7">
+          <div className="bg-neutral-900 border border-neutral-800 p-8 rounded-3xl min-h-[400px] flex flex-col">
+            <textarea 
+              value={campaign.ai_prompt} 
+              onChange={e => setCampaign(p => ({ ...p, ai_prompt: e.target.value }))}
+              placeholder="What should we create today?"
+              className="w-full bg-neutral-950 border border-neutral-800 rounded-2xl p-4 text-white placeholder:text-neutral-600 focus:border-fuchsia-500 transition outline-none mb-4"
+              rows={4}
+            />
+            <button onClick={generateContent} disabled={generating}
+              className="w-full bg-gradient-to-r from-fuchsia-600 to-purple-700 hover:opacity-90 py-4 rounded-2xl font-bold text-lg flex items-center justify-center gap-2 transition-all">
+              {generating ? <Loader2 className="animate-spin" /> : <><Wand2 /> Execute Pipeline</>}
+            </button>
+            
+            {campaign.ai_output && (
+              <div className="mt-8 bg-neutral-950 p-6 rounded-2xl border border-neutral-800 animate-in fade-in duration-700">
+                <h4 className="text-fuchsia-400 font-bold mb-2 flex items-center gap-2"><CheckCircle2 /> AI Response</h4>
+                <p className="text-neutral-300 leading-relaxed whitespace-pre-wrap">{campaign.ai_output}</p>
+              </div>
+            )}
           </div>
-        )}
-      </div>
-
-      <div className="flex justify-between">
-        <button onClick={() => setStep(s => Math.max(0, s - 1))} className="px-4 py-2 bg-secondary rounded-xl">Back</button>
-        <button onClick={() => setStep(s => Math.min(STEPS.length - 1, s + 1))} className="px-4 py-2 bg-fuchsia-600 text-white rounded-xl">Next</button>
+        </div>
       </div>
     </div>
   );
