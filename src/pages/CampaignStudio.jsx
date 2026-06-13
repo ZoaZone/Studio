@@ -119,9 +119,10 @@ export default function CampaignStudio() {
       try {
         const urls = JSON.parse(mediaImport);
         setCampaign(p => ({ ...p, media_urls: [...new Set([...p.media_urls, ...urls])] }));
-        setStep(3); // jump to media step to show the imported media
+        setStep(3);
         sessionStorage.removeItem("campaign_media_import");
       } catch (_) {}
+    }
   }, []);
 
   const selectedBrand = brands.find(b => b.id === campaign.brand_id);
