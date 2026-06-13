@@ -68,7 +68,7 @@ Deno.serve(async (req) => {
     const finalPrompt = isRichPrompt ? prompt : (legacyPrompts[type] || legacyPrompts.caption);
 
     // Try Base44 LLM first, fall back to OpenAI
-    let result;
+    let result; // <--- This is the only one you need
     try {
       // Define the guardrail and apply it to the prompt
       const spellingGuardrail = "\n\nCRITICAL: Double-check all spellings. If you are unsure of the spelling of a word, do not include it. Provide content in a clear, professional brand voice.";
@@ -76,6 +76,7 @@ Deno.serve(async (req) => {
       
       result = await base44.integrations.Core.InvokeLLM({ prompt: finalPromptWithGuardrail });
     } catch (llmError) {
+      // ...
       // ... your existing OpenAI fallback code ...
       const openaiKey = Deno.env.get("OPENAI_API_KEY");
       if (!openaiKey) throw llmError;
