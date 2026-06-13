@@ -122,7 +122,6 @@ export default function CampaignStudio() {
         setStep(3); // jump to media step to show the imported media
         sessionStorage.removeItem("campaign_media_import");
       } catch (_) {}
-    }
   }, []);
 
   const selectedBrand = brands.find(b => b.id === campaign.brand_id);
