@@ -1,4 +1,4 @@
-// Replace your return block in MediaStudio.jsx with this Stepper logic
+import { useState } from "react";
 export default function MediaStudio() {
   const [step, setStep] = useState(1); // 1: Brief, 2: Assets, 3: Generation, 4: Deployment
   
