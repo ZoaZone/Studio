@@ -1,81 +1,27 @@
-import React, { useState } from "react";
-import { base44 } from "../api/base44Client";
-
+// Replace your return block in MediaStudio.jsx with this Stepper logic
 export default function MediaStudio() {
-  const [loading, setLoading] = useState(false);
-  const [project, setProject] = useState(null);
-  const [formData, setFormData] = useState({ 
-    creativeVision: "", 
-    format: "16:9", 
-    duration: 60, 
-    mode: "professional" 
-  });
-
-  const handleExecutePipeline = async () => {
-    setLoading(true);
-    try {
-      const payload = { 
-        script: formData.creativeVision, 
-        format: formData.format, 
-        duration: parseInt(formData.duration),
-        mode: formData.mode,
-        timestamp: new Date().toISOString()
-      };
-      // Invoking the backend function
-      const result = await base44.functions.invoke("generateMediaContent", payload);
-      setProject(result);
-    } catch (err) { 
-      alert("Pipeline Error: " + err.message); 
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  const [step, setStep] = useState(1); // 1: Brief, 2: Assets, 3: Generation, 4: Deployment
+  
   return (
-    <div style={{ padding: "40px", maxWidth: "1200px", margin: "0 auto", fontFamily: "sans-serif" }}>
-      <h1>Automated Brand Studio</h1>
-      <div style={{ display: "grid", gridTemplateColumns: "350px 1fr", gap: "40px" }}>
-        
-        {/* Input Panel */}
-        <div style={{ background: "#f9f9f9", padding: "20px", borderRadius: "12px", border: "1px solid #eee" }}>
-          <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold" }}>Brand Vision</label>
-          <textarea 
-            onChange={(e) => setFormData({...formData, creativeVision: e.target.value})} 
-            style={{ width: "100%", height: "100px", marginBottom: "15px" }} 
-          />
-          
-          <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold" }}>Format</label>
-          <select onChange={(e) => setFormData({...formData, format: e.target.value})} style={{ width: "100%", marginBottom: "10px" }}>
-            <option value="16:9">16:9 Widescreen</option>
-            <option value="9:16">9:16 Vertical</option>
-          </select>
+    <div className="max-w-5xl mx-auto p-8">
+      {/* Modern Progress Bar */}
+      <div className="flex justify-between mb-12">
+        {['The Brief', 'Assembly', 'Generation', 'Review & Deploy'].map((s, i) => (
+          <div key={s} className={`flex flex-col items-center ${step > i ? 'text-fuchsia-500' : 'text-gray-400'}`}>
+            <div className={`w-10 h-10 rounded-full flex items-center justify-center border-2 ${step > i ? 'border-fuchsia-500 bg-fuchsia-50' : 'border-gray-300'}`}>
+              {i + 1}
+            </div>
+            <span className="text-xs mt-2 font-medium">{s}</span>
+          </div>
+        ))}
+      </div>
 
-          <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold" }}>Duration (sec)</label>
-          <input type="number" value={formData.duration} onChange={(e) => setFormData({...formData, duration: e.target.value})} style={{ width: "100%", marginBottom: "10px" }} />
-
-          <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold" }}>Mode</label>
-          <select onChange={(e) => setFormData({...formData, mode: e.target.value})} style={{ width: "100%", marginBottom: "20px" }}>
-            <option value="professional">Professional</option>
-            <option value="casual">Casual</option>
-            <option value="energetic">Energetic</option>
-          </select>
-
-          <button onClick={handleExecutePipeline} disabled={loading} style={{ width: "100%", padding: "12px", background: "#7f00ff", color: "#fff", borderRadius: "6px" }}>
-            {loading ? "Generating..." : "Execute Pipeline"}
-          </button>
-        </div>
-
-        {/* Preview Panel */}
-        <div style={{ background: "#000", borderRadius: "12px", minHeight: "300px", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
-          {project ? (
-            <>
-              <video src={project.videoUrl} controls autoPlay style={{ width: "100%", borderRadius: "12px" }} />
-              <a href={project.videoUrl} download style={{ marginTop: "20px", color: "#fff", textDecoration: "underline" }}>Download Video</a>
-            </>
-          ) : (
-            <p style={{ color: "#fff" }}>{loading ? "AI is generating..." : "Configure vision to generate media."}</p>
-          )}
-        </div>
+      {/* Dynamic Content Area */}
+      <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100">
+        {step === 1 && <BriefView onNext={() => setStep(2)} />}
+        {step === 2 && <AssemblyView onBack={() => setStep(1)} onNext={() => setStep(3)} />}
+        {step === 3 && <GenerationView onNext={() => setStep(4)} />}
+        {step === 4 && <DeployView onBack={() => setStep(3)} />}
       </div>
     </div>
   );
