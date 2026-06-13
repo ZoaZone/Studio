@@ -1,31 +1,37 @@
-import { useState } from "react";
-import BriefView from "../components/media-studio/BriefView";
-import AssemblyView from "../components/media-studio/AssemblyView";
-import GenerationView from "../components/media-studio/GenerationView";
-import DeployView from "../components/media-studio/DeployView";
+import React, { useState } from "react";
 export default function MediaStudio() {
-  const [step, setStep] = useState(1); // 1: Brief, 2: Assets, 3: Generation, 4: Deployment
-  
-  return (
-    <div className="max-w-5xl mx-auto p-8">
-      {/* Modern Progress Bar */}
-      <div className="flex justify-between mb-12">
-        {['The Brief', 'Assembly', 'Generation', 'Review & Deploy'].map((s, i) => (
-          <div key={s} className={`flex flex-col items-center ${step > i ? 'text-fuchsia-500' : 'text-gray-400'}`}>
-            <div className={`w-10 h-10 rounded-full flex items-center justify-center border-2 ${step > i ? 'border-fuchsia-500 bg-fuchsia-50' : 'border-gray-300'}`}>
-              {i + 1}
-            </div>
-            <span className="text-xs mt-2 font-medium">{s}</span>
-          </div>
-        ))}
-      </div>
+  const [loading, setLoading] = useState(false);
+  const [project, setProject] = useState(null);
+  const [formData, setFormData] = useState({ creativeVision: "" });
 
-      {/* Dynamic Content Area */}
-      <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100">
-        {step === 1 && <BriefView onNext={() => setStep(2)} />}
-        {step === 2 && <AssemblyView onBack={() => setStep(1)} onNext={() => setStep(3)} />}
-        {step === 3 && <GenerationView onNext={() => setStep(4)} />}
-        {step === 4 && <DeployView onBack={() => setStep(3)} />}
+  const handleExecutePipeline = async () => {
+    setLoading(true);
+    try {
+      const result = await base44.functions.invoke("generateMediaContent", { 
+        script: formData.creativeVision 
+      });
+      setProject(result);
+    } catch (err) { alert("Pipeline error: " + err.message); }
+    setLoading(false);
+  };
+
+  return (
+    <div style={{ padding: "40px", maxWidth: "1200px", margin: "0 auto", fontFamily: "sans-serif" }}>
+      <h1>Automated Brand Studio</h1>
+      <div style={{ display: "grid", gridTemplateColumns: "350px 1fr", gap: "40px", marginTop: "20px" }}>
+        <div style={{ background: "#f9f9f9", padding: "20px", borderRadius: "12px" }}>
+          <textarea 
+            placeholder="Describe your brand vision..." 
+            onChange={(e) => setFormData({...formData, creativeVision: e.target.value})}
+            style={{ width: "100%", height: "200px", padding: "10px", borderRadius: "6px" }} 
+          />
+          <button onClick={handleExecutePipeline} disabled={loading} style={{ marginTop: "15px", width: "100%", padding: "12px", background: "#7f00ff", color: "#fff", border: "none", borderRadius: "6px" }}>
+            {loading ? "Processing..." : "Execute Pipeline"}
+          </button>
+        </div>
+        <div style={{ background: "#000", borderRadius: "12px", minHeight: "300px", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          {project ? <video src={project.videoUrl} controls style={{ width: "100%" }} /> : <p style={{ color: "#fff" }}>{loading ? "AI is generating..." : "Configure vision to generate media."}</p>}
+        </div>
       </div>
     </div>
   );

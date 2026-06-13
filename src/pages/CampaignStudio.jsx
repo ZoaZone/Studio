@@ -2,28 +2,10 @@ import { useState, useRef, useEffect } from "react";
 import { useOutletContext, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
-import {
-  Building2, FileText, Image, Video, Calendar, Send, ChevronRight,
-  ChevronLeft, Check, Loader2, X, Upload, AlertTriangle, Play, Film,
-  Layers, Zap, RefreshCw, Download, Clock, Shield, Plus, Trash2,
-  Star, ImagePlus, Hash, Megaphone, Mail, MessageSquare, Palette,
-  Users, Globe, Mic2, CheckCircle2, Share2, Sparkles, BookOpen, Eye
-} from "lucide-react";
+import { generateMedia } from "./MediaStudio";
+import { Building2, FileText, Image, Video, Calendar, Send, ChevronRight, ChevronLeft, Check, Loader2, X, Upload, AlertTriangle, Play, Film, Layers, Zap, RefreshCw, Download, Clock, Shield, Plus, Trash2, Star, ImagePlus, Hash, Megaphone, Mail, MessageSquare, Palette, Users, Globe, Mic2, CheckCircle2, Share2, Sparkles, BookOpen, Eye } from "lucide-react";
 
-const STEPS = [
-  { id:"brand",    label:"Brand",        icon:Building2,  desc:"Select or create brand" },
-  { id:"accounts", label:"Accounts",     icon:Share2,     desc:"Link social accounts" },
-  { id:"content",  label:"Script/Copy",  icon:FileText,   desc:"AI-generated content" },
-  { id:"media",    label:"Media",        icon:Image,      desc:"Upload or generate visuals" },
-  { id:"schedule", label:"Schedule",     icon:Calendar,   desc:"Set dates & topics" },
-  { id:"publish",  label:"Publish",      icon:Send,       desc:"Review & go live" },
-];
-
-const PLATFORMS = [
-  { id:"instagram", label:"Instagram", color:"from-pink-500 to-rose-600" },
-  { id:"facebook",  label:"Facebook",  color:"from-blue-500 to-blue-700" },
-  { id:"tiktok",    label:"TikTok",    color:"from-gray-700 to-gray-900" },
-  { id:"linkedin",  label:"LinkedIn",  color:"from-sky-600 to-blue-800" },
+const STEPS = [  { id:"linkedin",  label:"LinkedIn",  color:"from-sky-600 to-blue-800" },
   { id:"youtube",   label:"YouTube",   color:"from-red-500 to-red-700" },
   { id:"twitter_x", label:"Twitter/X", color:"from-zinc-600 to-zinc-900" },
   { id:"whatsapp",  label:"WhatsApp",  color:"from-green-500 to-emerald-600" },
@@ -103,7 +85,6 @@ export default function CampaignStudio() {
   });
 
   // Read prefill from ScriptWriter or media imports
-  useEffect(() => {
     const prefill = sessionStorage.getItem("campaignStudio_prefill");
     if (prefill) {
       try {
@@ -114,14 +95,10 @@ export default function CampaignStudio() {
       } catch (_) {}
     }
     // Pick up media imported from Media Studio
-    const mediaImport = sessionStorage.getItem("campaign_media_import");
-    if (mediaImport) {
       try {
         const urls = JSON.parse(mediaImport);
         setCampaign(p => ({ ...p, media_urls: [...new Set([...p.media_urls, ...urls])] }));
-        setStep(3);
-        sessionStorage.removeItem("campaign_media_import");
-      } catch (_) {}
+        setStep(3); // jump to media step to show the imported media
     }
   }, []);
 
@@ -149,12 +126,24 @@ export default function CampaignStudio() {
       ? `Write a ${campaign.tone} ${campaign.content_type.replace(/_/g," ")} for ${campaign.platforms[0] || "Instagram"}.\n\nTopic: ${campaign.ai_prompt}${brandContext}\n\nFormat your response EXACTLY like this:\nCAPTION:\n[Write the caption here with correct grammar and spelling. No markdown headers like ### — just clean text.]\n\nHASHTAGS:\n[20 relevant hashtags starting with #]`
       : `${campaign.ai_prompt}${brandContext}`;
     try {
-      const res = await base44.functions.invoke("generateMediaContent", {
         type: campaign.content_type,
         platform: campaign.platforms[0] || "Instagram",
         tone: campaign.tone,
         prompt: promptText,
       });
+
+  const runAutoPipeline = async () => {
+    setGenerating(true);
+    try {
+      await generateContent();
+      await generateImage();
+      generateScheduleDates();
+      alert("Pipeline complete! Content and Media are generated and scheduled.");
+    } catch (e) {
+      alert("Pipeline Error: " + e.message);
+    }
+    setGenerating(false);
+  };
       const raw = res?.content || res?.data?.content || res?.text || res?.data?.text || "";
       const text = typeof raw === "string" ? raw : JSON.stringify(raw);
       if (isCaption) {
@@ -175,7 +164,6 @@ export default function CampaignStudio() {
     if (!brand) { alert("Select a brand first"); return; }
     setAiTopicLoading(true);
     try {
-      const res = await base44.functions.invoke("generateMediaContent", {
         type: "caption",
         platform: campaign.platforms[0] || "Instagram",
         tone: campaign.tone,
@@ -281,7 +269,6 @@ export default function CampaignStudio() {
     if (!selectedBrand) { alert("Select a brand first"); return; }
     setAiTopicLoading(true);
     try {
-      const res = await base44.functions.invoke("generateMediaContent", {
         type: "caption",
         platform: campaign.platforms[0] || "Instagram",
         tone: campaign.tone,
@@ -347,28 +334,7 @@ export default function CampaignStudio() {
             <Sparkles className="w-6 h-6 text-fuchsia-400" /> Campaign Studio
           </h1>
           <p className="text-sm text-muted-foreground mt-0.5">Full campaign creation workflow — brand to publish</p>
-          
-          {/* New Auto Pipeline Button */}
-          <button 
-            onClick={async () => {
-              setGenerating(true);
-              try {
-                await generateContent();
-                await generateImage();
-                generateScheduleDates();
-                alert("Pipeline complete! Content and Media are generated and scheduled.");
-              } catch (e) {
-                alert("Pipeline Error: " + e.message);
-              }
-              setGenerating(false);
-            }}
-            className="mt-3 flex items-center gap-2 px-4 py-2 bg-fuchsia-600 text-white rounded-xl hover:bg-fuchsia-700 transition text-sm"
-          >
-            {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
-            Run Auto Pipeline
-          </button>
         </div>
-
         {campaign.campaign_name && (
           <span className="px-3 py-1 rounded-full bg-fuchsia-500/10 text-fuchsia-400 text-sm font-medium">{campaign.campaign_name}</span>
         )}
@@ -650,7 +616,6 @@ export default function CampaignStudio() {
                 <span className="text-2xl block mb-2">🔗</span>
                 <p className="font-bold text-xs">Media Studio</p>
                 <p className="text-xs mt-0.5 text-muted-foreground">Generate then import</p>
-              </button>
             </div>
 
             {/* Upload section */}
@@ -775,7 +740,6 @@ export default function CampaignStudio() {
                     if (!campaign.ai_prompt && !selectedBrand) return;
                     setGenerating(true);
                     try {
-                      const res = await base44.functions.invoke("generateMediaContent", {
                         type: "hashtag_set",
                         platform: campaign.platforms[0] || "instagram",
                         tone: campaign.tone,
