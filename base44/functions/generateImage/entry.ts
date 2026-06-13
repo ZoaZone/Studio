@@ -19,7 +19,11 @@ Deno.serve(async (req) => {
     const refInstruction = reference_image_urls?.length
       ? ' IMPORTANT: Replicate the exact person(s), face(s), outfit, and visual style from the provided reference images as faithfully as possible. Maintain their likeness while adapting composition to match the marketing context.'
       : '';
-    const enhancedPrompt = `${prompt}${refInstruction}${platform ? ` Optimized for ${platform}.` : ''}${dimensions ? ` Aspect ratio: ${dimensions}.` : ''} High quality, professional, sharp, commercial photography style.`;
+      
+    // Added strict instructions to prevent text and fake logo hallucination
+    const noTextInstruction = ' STRICTLY NO TEXT: Do not generate any text, letters, words, typography, watermarks, or logos anywhere in the image. Keep the image completely free of written content.';
+
+    const enhancedPrompt = `${prompt}${refInstruction}${platform ? ` Optimized for ${platform}.` : ''}${dimensions ? ` Aspect ratio: ${dimensions}.` : ''} High quality, professional, sharp, commercial photography style.${noTextInstruction}`;
 
     const result = await base44.integrations.Core.GenerateImage({
       prompt: enhancedPrompt,
@@ -30,7 +34,14 @@ Deno.serve(async (req) => {
 
     let item;
     try {
-      item = await base44.entities.MediaLibraryItem.create({ client_id: client_id || '', title: prompt.slice(0, 60), file_url: url, file_type: 'image', dimensions: dimensions || '', ai_generated: true });
+      item = await base44.entities.MediaLibraryItem.create({ 
+          client_id: client_id || '', 
+          title: prompt.slice(0, 60), 
+          file_url: url, 
+          file_type: 'image', 
+          dimensions: dimensions || '', 
+          ai_generated: true 
+      });
     } catch (_) {}
 
     return Response.json({ success: true, file_url: url, url, item_id: item?.id }, { headers: CORS });
