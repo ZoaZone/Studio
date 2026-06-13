@@ -49,22 +49,20 @@ Deno.serve(async (req) => {
     // We use it directly — just fall back to internal prompts for legacy calls.
     const isRichPrompt = prompt.length > 80; // frontend sends detailed prompts
 
-    const legacyPrompts: Record<string, string> = {
-      caption:          `Create an engaging ${p} caption. Topic: ${prompt}. Tone: ${t}. Include relevant emojis. Make it attention-grabbing. Max 220 chars.${context}`,
-      ad_copy:          `Write compelling ad copy for ${p}. Product/Service: ${prompt}. Tone: ${t}. Format:\nHEADLINE: ...\nBODY: ...\nCTA: ...\nHASHTAGS: ...${context}`,
-      email_template:   `Write a professional marketing email. Topic: ${prompt}. Platform: ${p}. Tone: ${t}. Format:\nSUBJECT: ...\nPREHEADER: ...\n\nBODY:\n...\n\nCTA BUTTON: ...${context}`,
-      sms_template:     `Write a concise SMS (max 160 chars) with a clear CTA. Topic: ${prompt}. Tone: ${t}.${context}`,
-      whatsapp:         `Write a WhatsApp broadcast message. Topic: ${prompt}. Tone: ${t}. Max 300 chars. Include emojis and opt-out line.${context}`,
-      hashtag_set:      `Generate 30 relevant hashtags for ${p} about: ${prompt}. Group as: broad, niche, branded.${context}`,
-      blog_post:        `Write a complete SEO blog post. Topic: ${prompt}. Tone: ${t}.\nInclude: SEO Title, Meta Description, H1/H2/H3, 700-word body, CTA.${context}`,
-      video_script:     `Write a video script for ${p}. Topic: ${prompt}. Tone: ${t}.\nFormat: HOOK (0-3s), INTRO, [scenes with timecodes], OUTRO+CTA, CAPTION TEXT.${context}`,
-      video_storyboard: `Create a storyboard for a ${p} video. Topic: ${prompt}.\nFor each shot: SHOT N, VISUAL, AUDIO/VO, TEXT OVERLAY, DURATION. Include 6-10 shots.${context}`,
-      thumbnail:        `Provide thumbnail design directions for ${p} video. Topic: ${prompt}.\nInclude: CONCEPT, BACKGROUND, TEXT OVERLAY, COLOR PALETTE, EMOTION, FONT STYLE.${context}`,
-      brand_voice:      `Create a brand voice guide for: ${prompt}.\nInclude: Personality, Tone of Voice, Words We Use/Avoid, 5 Taglines, Sample Bio, Sample Caption.${context}`,
-      brand_bio:        `Write platform bios for "${prompt}".\nProvide: INSTAGRAM BIO, TWITTER/X BIO, LINKEDIN SUMMARY, TIKTOK BIO, YOUTUBE ABOUT.${context}`,
-      press_release:    `Write a press release for "${prompt}". Format: FOR IMMEDIATE RELEASE\nHEADLINE:\nSUBHEADLINE:\nBody (3-4 paragraphs)\nQUOTE:\nABOUT:\nCONTACT:${context}`,
-      script:           `Write a video script for ${p}. Topic: ${prompt}. Include scene directions and dialogue.${context}`,
-    };
+    const legacyPrompts = {
+  video_script: `Write a professional video script for ${p}. Topic: ${prompt}. Tone: ${t}.
+  IMPORTANT:
+  1. Correct spelling is mandatory.
+  2. Format: [Timecode] [Scene Description] [On-Screen Text Overlay].
+  3. Brand Style: ${t}.`,
+
+  video_storyboard: `Create a storyboard for a ${p} video about: ${prompt}.
+  IMPORTANT:
+  1. BRANDING: Every shot MUST include: "PLACE LOGO IN BOTTOM RIGHT".
+  2. TEXT: Verify spelling. DO NOT guess text.
+  3. Format: SHOT N, VISUAL, AUDIO, TEXT OVERLAY (verified spelling), LOGO PLACEMENT.`,
+  // ... keep the rest of your existing entries
+};
 
     // Use the incoming prompt if it's already detailed (frontend-built), else use legacy
     const finalPrompt = isRichPrompt ? prompt : (legacyPrompts[type] || legacyPrompts.caption);
@@ -72,8 +70,13 @@ Deno.serve(async (req) => {
     // Try Base44 LLM first, fall back to OpenAI
     let result;
     try {
-      result = await base44.integrations.Core.InvokeLLM({ prompt: finalPrompt });
+      // Define the guardrail and apply it to the prompt
+      const spellingGuardrail = "\n\nCRITICAL: Double-check all spellings. If you are unsure of the spelling of a word, do not include it. Provide content in a clear, professional brand voice.";
+      const finalPromptWithGuardrail = finalPrompt + spellingGuardrail;
+      
+      result = await base44.integrations.Core.InvokeLLM({ prompt: finalPromptWithGuardrail });
     } catch (llmError) {
+      // ... your existing OpenAI fallback code ...
       const openaiKey = Deno.env.get("OPENAI_API_KEY");
       if (!openaiKey) throw llmError;
       const openaiRes = await fetch("https://api.openai.com/v1/chat/completions", {
