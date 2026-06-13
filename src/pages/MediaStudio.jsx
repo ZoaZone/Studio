@@ -1,8 +1,8 @@
 import { useState } from "react";
-import BriefView from "../components/BriefView";
-import AssemblyView from "../components/AssemblyView";
-import GenerationView from "../components/GenerationView";
-import DeployView from "../components/DeployView";
+import BriefView from "../components/media-studio/BriefView";
+import AssemblyView from "../components/media-studio/AssemblyView";
+import GenerationView from "../components/media-studio/GenerationView";
+import DeployView from "../components/media-studio/DeployView";
 export default function MediaStudio() {
   const [step, setStep] = useState(1); // 1: Brief, 2: Assets, 3: Generation, 4: Deployment
   
