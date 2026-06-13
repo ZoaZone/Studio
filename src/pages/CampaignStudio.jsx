@@ -84,8 +84,8 @@ export default function CampaignStudio() {
     queryFn: () => base44.entities.CampaignPost.list("-created_date", 50),
   });
 
+  // Read prefill from ScriptWriter or media imports
   useEffect(() => {
-    // Read prefill from ScriptWriter or media imports
     const prefill = sessionStorage.getItem("campaignStudio_prefill");
     if (prefill) {
       try {
@@ -95,48 +95,19 @@ export default function CampaignStudio() {
         sessionStorage.removeItem("campaignStudio_prefill");
       } catch (_) {}
     }
-
-    // Pick up media imported from Media Studio
-    try {
-      const urls = JSON.parse(mediaImport);
-      setCampaign(p => ({ ...p, media_urls: [...new Set([...p.media_urls, ...urls])] }));
-      setStep(3); // jump to media step to show the imported media
-    } catch (error) {
-      console.error("Failed to parse imported media:", error);
-    }
   }, []);
 
   const selectedBrand = brands.find(b => b.id === campaign.brand_id);
   const brandAccounts = allAccounts.filter(a => a.brand_id === campaign.brand_id);
   const allConsentGiven = consentChecked.every(Boolean);
 
-  // Step 0: Select / quick-create brand
-  // Step 1: Pick social accounts for this campaign
-  // Step 2: Generate copy / script
-  // Step 3: Upload or generate media
-  // Step 4: Platform format
-  // Step 5: Schedule (multi-date up to 3 months)
-  // Step 6: Review & publish
-
   const generateContent = async () => {
-    if (!campaign.ai_prompt.trim()) {
-      alert("Enter a topic or brief");
-      return;
-    }
+    if (!campaign.ai_prompt.trim()) { alert("Enter a topic or brief"); return; }
     setGenerating(true);
-    
     const brand = selectedBrand;
-    const brandContext = brand
-      ? `\n\nBrand: ${brand.name}. Voice: ${brand.brand_voice || "Professional"}. Audience: ${brand.target_audience || "general audience"}. Industry: ${brand.industry || ""}. Tagline: ${brand.tagline || ""}.`
-      : "";
-      
-    const isCaption = ["caption", "ad_copy", "whatsapp"].includes(campaign.content_type);
-    const promptText = isCaption
-      ? `Write a ${campaign.tone} ${campaign.content_type.replace(/_/g, " ")} for ${campaign.platforms[0] || "Instagram"}.\n\nTopic: ${campaign.ai_prompt}${brandContext}\n\nFormat your response EXACTLY like this:\nCAPTION:\n[Write the caption here with correct grammar and spelling. No markdown headers like ### — just clean text.]\n\nHASHTAGS:\n[20 relevant hashtags starting with #]`
-      : `${campaign.ai_prompt}${brandContext}`;
-
+    const brandContext = brand ? `\n\nBrand: ${brand.name}.` : "";
+    
     try {
-      // Reconstructed API call that was sliced in half
       const res = await fetch("/api/functions/generateMediaContent", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -144,28 +115,15 @@ export default function CampaignStudio() {
           type: campaign.content_type,
           platform: campaign.platforms[0] || "Instagram",
           tone: campaign.tone,
-          prompt: promptText,
+          prompt: `${campaign.ai_prompt}${brandContext}`,
         })
       }).then(r => r.json());
 
-      const raw = res?.content || res?.data?.content || res?.text || res?.data?.text || "";
-      const text = typeof raw === "string" ? raw : JSON.stringify(raw);
-      
-      if (isCaption) {
-        const captionMatch = text.match(/CAPTION:\s*([\s\S]*?)(?=HASHTAGS:|$)/i);
-        const hashMatch = text.match(/HASHTAGS:\s*([\s\S]*?)$/i);
-        
-        setCampaign(p => ({
-          ...p,
-          generated_content: captionMatch ? captionMatch[1].trim() : text,
-          hashtags: hashMatch ? hashMatch[1].trim() : ""
-        }));
-      } else {
-        setCampaign(p => ({ ...p, generated_content: text }));
-      }
-    } catch (error) {
-      console.error("Content generation failed:", error);
-      alert("Failed to generate content.");
+      const raw = res?.content || res?.data?.content || "";
+      setCampaign(p => ({ ...p, ai_output: typeof raw === "string" ? raw : JSON.stringify(raw) }));
+    } catch (e) { 
+      console.error(e);
+      alert("Generation failed"); 
     }
     setGenerating(false);
   };
