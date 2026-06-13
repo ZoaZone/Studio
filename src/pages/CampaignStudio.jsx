@@ -84,7 +84,8 @@ export default function CampaignStudio() {
     queryFn: () => base44.entities.CampaignPost.list("-created_date", 50),
   });
 
-  // Read prefill from ScriptWriter or media imports
+  useEffect(() => {
+    // Read prefill from ScriptWriter or media imports
     const prefill = sessionStorage.getItem("campaignStudio_prefill");
     if (prefill) {
       try {
@@ -94,6 +95,7 @@ export default function CampaignStudio() {
         sessionStorage.removeItem("campaignStudio_prefill");
       } catch (_) {}
     }
+
     // Pick up media imported from Media Studio
     try {
       const urls = JSON.parse(mediaImport);
