@@ -154,7 +154,7 @@ const generateContent = async () => {
     setGenerating(false);
   };
   
-      const raw = res?.content || res?.data?.content || "";
+      const raw = res?.content || res?.data?.content || res?.text || res?.data?.text || "";
       const text = typeof raw === "string" ? raw : JSON.stringify(raw);
       
       if (isCaption) {
@@ -173,6 +173,7 @@ const generateContent = async () => {
       console.error("Content generation failed:", error);
       alert("Failed to generate content.");
     }
+    setGenerating(false);
 
   const generateAITopics = async () => {
     const brand = selectedBrand;
