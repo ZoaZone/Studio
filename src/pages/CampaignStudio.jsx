@@ -101,8 +101,11 @@ export default function CampaignStudio() {
   const brandAccounts = allAccounts.filter(a => a.brand_id === campaign.brand_id);
   const allConsentGiven = consentChecked.every(Boolean);
 
-  const generateContent = async () => {
-    if (!campaign.ai_prompt.trim()) { alert("Enter a topic or brief"); return; }
+const generateContent = async () => {
+    if (!campaign.ai_prompt.trim()) {
+      alert("Enter a topic or brief");
+      return;
+    }
     setGenerating(true);
     const brand = selectedBrand;
     const brandContext = brand ? `\n\nBrand: ${brand.name}.` : "";
@@ -120,10 +123,11 @@ export default function CampaignStudio() {
       }).then(r => r.json());
 
       const raw = res?.content || res?.data?.content || "";
-      setCampaign(p => ({ ...p, ai_output: typeof raw === "string" ? raw : JSON.stringify(raw) }));
-    } catch (e) { 
-      console.error(e);
-      alert("Generation failed"); 
+      const text = typeof raw === "string" ? raw : JSON.stringify(raw);
+      setCampaign(p => ({ ...p, generated_content: text }));
+    } catch (error) {
+      console.error("Content generation failed:", error);
+      alert("Failed to generate content.");
     }
     setGenerating(false);
   };
@@ -140,6 +144,7 @@ export default function CampaignStudio() {
     }
     setGenerating(false);
   };
+  
       const raw = res?.content || res?.data?.content || "";
       const text = typeof raw === "string" ? raw : JSON.stringify(raw);
       
