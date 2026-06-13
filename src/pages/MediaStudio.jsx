@@ -2,85 +2,90 @@ import React, { useState, useEffect } from "react";
 import { useOutletContext } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
-import { Sparkles, Loader2, Download, Upload, X, Film, Eye, RefreshCw, Wand2, Volume2, AlignLeft, ImagePlus, Play, Clapperboard, Layers, Star, Image, CheckCircle2, Copy, ChevronDown, ChevronUp } from "lucide-react";
+import { Sparkles, Loader2, Download, Upload, X, Film, Eye, RefreshCw, Wand2, Clapperboard, Image, FileText, Megaphone, Hash, Globe, Mail, MessageSquare, Star, Zap, Mic, AlignLeft, Play } from "lucide-react";
 
-// (Keep your TYPES, CATEGORIES, PLATFORMS, TONES, VIDEO_STYLES, VIDEO_DURATIONS, AI_VIDEO_FORMATS, AI_VIDEO_DURATIONS, IMAGE_DIMS, and buildPrompt functions exactly as you provided them in your snippet above.)
+// ── Configuration Constants ──
+const TYPES = [
+  { id: "ai_video", label: "AI Video", Icon: Clapperboard, desc: "Generate real video", category: "video" },
+  { id: "image", label: "AI Image", Icon: Image, desc: "Platform-ready images", category: "visual" },
+  { id: "caption", label: "Caption", Icon: FileText, desc: "Social captions", category: "copy" }
+];
 
 export default function MediaStudio() {
-  const { user } = useOutletContext() || {};
   const qc = useQueryClient();
-  const [activeType, setActiveType] = useState("image");
-  const [activeCat, setActiveCat] = useState("all");
-  const [form, setForm] = useState({
-    prompt: "", platform: "Instagram", tone: "Professional",
-    dimensions: "1080x1080", videoStyle: "Short-form Reel", videoDuration: "60 seconds",
-    videoAspect: "9:16", videoSeconds: 6, audioNote: "", captionStyle: "minimal"
-  });
-  const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const [saved, setSaved] = useState(false);
-  const [showAdvanced, setShowAdvanced] = useState(false);
-  const [uploadedFiles, setUploadedFiles] = useState([]);
-  const [uploading, setUploading] = useState(false);
+  const [project, setProject] = useState(null);
+  const [activeType, setActiveType] = useState("ai_video");
+  const [formData, setFormData] = useState({ 
+    creativeVision: "", 
+    format: "16:9", 
+    duration: 60, 
+    mode: "professional" 
+  });
 
-  // ... (Keep handleFileUpload, removeUploadedFile, sanitizeVideoPrompt, generate, copy, and save functions exactly as defined in your snippet)
+  const handleExecutePipeline = async () => {
+    setLoading(true);
+    try {
+      const payload = { 
+        script: formData.creativeVision, 
+        format: formData.format, 
+        duration: parseInt(formData.duration),
+        mode: formData.mode,
+        timestamp: new Date().toISOString()
+      };
+      const result = await base44.functions.invoke("generateMediaContent", payload);
+      setProject(result);
+    } catch (err) { 
+      alert("Pipeline Error: " + err.message); 
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  const activeTypeObj = TYPES.find(t => t.id === activeType);
-  const isVisual = activeType === "image" || activeType === "thumbnail";
-  const isVideoType = activeType === "video_script" || activeType === "video_storyboard";
-  const isAiVideo = activeType === "ai_video";
-  const filteredTypes = activeCat === "all" ? TYPES : TYPES.filter(t => t.category === activeCat);
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
-      {/* Header and Type Grid (Keep your existing Header/Category/Type Grid markup) */}
+    <div style={{ padding: "40px", maxWidth: "1200px", margin: "0 auto", fontFamily: "sans-serif" }}>
+      <h1 style={{ marginBottom: "20px" }}>Automated Brand Studio</h1>
       
-      <div className="grid md:grid-cols-2 gap-6">
-        {/* Input Panel (Keep your existing Input Panel markup) */}
-
-        {/* Output Panel - FINAL FIXED VERSION */}
-        <div className="bg-card border border-border rounded-2xl p-5 flex flex-col">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold text-foreground">Output</h3>
-            {result && (
-              <div className="flex items-center gap-2">
-                <button onClick={generate} className="p-1.5 rounded-lg bg-muted text-muted-foreground hover:text-foreground"><RefreshCw className="w-3.5 h-3.5" /></button>
-                <button onClick={save} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-fuchsia-500/10 text-fuchsia-400">
-                  {saved ? "Saved!" : "Save"}
-                </button>
-              </div>
-            )}
-          </div>
-
-          {!result && !loading && <div className="text-center py-20 text-muted-foreground">Configure and Generate...</div>}
+      <div style={{ display: "grid", gridTemplateColumns: "350px 1fr", gap: "40px" }}>
+        {/* Input Panel */}
+        <div style={{ background: "#f9f9f9", padding: "20px", borderRadius: "12px", border: "1px solid #eee" }}>
+          <label><strong>Brand Vision</strong></label>
+          <textarea 
+            onChange={(e) => setFormData({...formData, creativeVision: e.target.value})} 
+            style={{ width: "100%", height: "150px", marginBottom: "15px" }} 
+            placeholder="Describe your vision..."
+          />
           
-          {loading && <div className="text-center py-20 animate-pulse">AI is generating...</div>}
+          <label><strong>Format</strong></label>
+          <select onChange={(e) => setFormData({...formData, format: e.target.value})} style={{ width: "100%", marginBottom: "10px" }}>
+            <option value="16:9">16:9 Widescreen</option>
+            <option value="9:16">9:16 Vertical</option>
+          </select>
 
-          {result && !loading && (
-            <div className="flex-1 space-y-4">
-              {result.type === "video" && result.url ? (
-                <div className="space-y-4">
-                  <video src={result.url} controls className="w-full rounded-xl bg-black" />
-                  {result.clipUrls?.length > 0 && (
-                    <div className="grid grid-cols-2 gap-2">
-                      {result.clipUrls.map((url, i) => (
-                        <div key={i} className="rounded-lg border border-border overflow-hidden">
-                          <video src={url} controls className="w-full" />
-                          <div className="flex justify-between p-2">
-                            <span className="text-xs">Clip {i + 1}</span>
-                            <a href={url} download className="text-xs text-fuchsia-400">Download</a>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ) : result.type === "image" && result.url ? (
-                <img src={result.url} className="w-full rounded-xl" />
-              ) : (
-                <pre className="text-xs p-4 bg-muted rounded-xl whitespace-pre-wrap">{result.text}</pre>
-              )}
-            </div>
+          <label><strong>Duration (sec)</strong></label>
+          <input type="number" value={formData.duration} onChange={(e) => setFormData({...formData, duration: e.target.value})} style={{ width: "100%", marginBottom: "10px" }} />
+
+          <label><strong>Mode</strong></label>
+          <select onChange={(e) => setFormData({...formData, mode: e.target.value})} style={{ width: "100%", marginBottom: "20px" }}>
+            <option value="professional">Professional</option>
+            <option value="casual">Casual</option>
+            <option value="energetic">Energetic</option>
+          </select>
+
+          <button onClick={handleExecutePipeline} disabled={loading} style={{ width: "100%", padding: "12px", background: "#7f00ff", color: "#fff", borderRadius: "6px" }}>
+            {loading ? "Generating..." : "Execute Pipeline"}
+          </button>
+        </div>
+
+        {/* Preview Panel */}
+        <div style={{ background: "#000", borderRadius: "12px", minHeight: "300px", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+          {project ? (
+            <>
+              <video src={project.videoUrl} controls autoPlay style={{ width: "100%", borderRadius: "12px" }} />
+              <a href={project.videoUrl} download style={{ marginTop: "20px", color: "#fff", textDecoration: "underline" }}>Download Video</a>
+            </>
+          ) : (
+            <p style={{ color: "#fff" }}>{loading ? "AI is generating..." : "Configure vision to generate media."}</p>
           )}
         </div>
       </div>
