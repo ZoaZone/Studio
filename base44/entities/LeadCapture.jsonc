@@ -1,0 +1,55 @@
+{
+  "name": "LeadCapture",
+  "type": "object",
+  "properties": {
+    "client_id": {
+      "type": "string"
+    },
+    "funnel_id": {
+      "type": "string"
+    },
+    "full_name": {
+      "type": "string"
+    },
+    "email": {
+      "type": "string"
+    },
+    "phone": {
+      "type": "string"
+    },
+    "whatsapp": {
+      "type": "string"
+    },
+    "source": {
+      "type": "string",
+      "enum": [
+        "website",
+        "social",
+        "ad",
+        "qr_code",
+        "referral",
+        "manual"
+      ]
+    },
+    "utm_source": {
+      "type": "string"
+    },
+    "utm_campaign": {
+      "type": "string"
+    },
+    "form_data": {
+      "type": "string"
+    },
+    "captured_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 1000
+    }
+  },
+  "required": [
+    "full_name"
+  ]
+}

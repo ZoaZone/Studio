@@ -1,0 +1,21 @@
+{
+  "name": "digitalstudios.app — AI Marketing OS",
+  "short_name": "digitalstudios.app",
+  "description": "AI-powered marketing OS: content studio, social scheduling, funnels, bulk messaging and analytics.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f0f0f",
+  "theme_color": "#0f0f0f",
+  "icons": [
+    {
+      "src": "/favicon.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/favicon.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

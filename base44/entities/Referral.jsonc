@@ -1,0 +1,34 @@
+{
+  "name": "Referral",
+  "type": "object",
+  "properties": {
+    "affiliate_id": {
+      "type": "string"
+    },
+    "cookie_id": {
+      "type": "string",
+      "description": "Persistent anonymous id generated client-side on first touch (stored in localStorage — this is a browser SPA, not a server-rendered site)."
+    },
+    "referred_user_id": {
+      "type": "string",
+      "description": "Purchasing user's email — set at conversion time, empty until then."
+    },
+    "landing_code": {
+      "type": "string",
+      "description": "The ?ref= code the visitor landed with."
+    },
+    "first_touch_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "converted": {
+      "type": "boolean",
+      "default": false
+    },
+    "attribution_window_days": {
+      "type": "number",
+      "default": 30
+    }
+  },
+  "required": ["affiliate_id", "cookie_id", "landing_code"]
+}

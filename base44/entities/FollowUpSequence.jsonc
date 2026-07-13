@@ -1,0 +1,43 @@
+{
+  "name": "FollowUpSequence",
+  "type": "object",
+  "properties": {
+    "client_id": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string"
+    },
+    "trigger": {
+      "type": "string",
+      "enum": [
+        "new_lead",
+        "form_submit",
+        "link_click",
+        "no_reply",
+        "stage_change",
+        "manual"
+      ]
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "paused",
+        "draft"
+      ],
+      "default": "draft"
+    },
+    "contact_count": {
+      "type": "number",
+      "default": 0
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 1000
+    }
+  },
+  "required": [
+    "name"
+  ]
+}

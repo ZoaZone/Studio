@@ -1,0 +1,49 @@
+{
+  "name": "BetaRequest",
+  "type": "object",
+  "properties": {
+    "full_name": {
+      "type": "string"
+    },
+    "email": {
+      "type": "string"
+    },
+    "company": {
+      "type": "string"
+    },
+    "use_case": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "approved",
+        "rejected"
+      ],
+      "default": "pending"
+    },
+    "note": {
+      "type": "string"
+    },
+    "invite_sent": {
+      "type": "boolean",
+      "default": false
+    },
+    "invite_token": {
+      "type": "string"
+    },
+    "invite_expires_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 1000
+    }
+  },
+  "required": [
+    "full_name",
+    "email"
+  ]
+}

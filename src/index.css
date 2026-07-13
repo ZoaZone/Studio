@@ -1,0 +1,201 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  /* ── Default = dark ── */
+  :root {
+    --background: 0 0% 6%;
+    --foreground: 0 0% 95%;
+    --card: 0 0% 9%;
+    --card-foreground: 0 0% 95%;
+    --popover: 0 0% 9%;
+    --popover-foreground: 0 0% 95%;
+    --primary: 292 91% 62%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 0 0% 14%;
+    --secondary-foreground: 0 0% 95%;
+    --muted: 0 0% 14%;
+    --muted-foreground: 0 0% 55%;
+    --accent: 51 100% 50%;
+    --accent-foreground: 0 0% 5%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 16%;
+    --input: 0 0% 16%;
+    --ring: 292 91% 62%;
+    --chart-1: 292 91% 62%;
+    --chart-2: 51 100% 50%;
+    --chart-3: 200 80% 55%;
+    --chart-4: 150 60% 50%;
+    --chart-5: 30 90% 60%;
+    --radius: 0.75rem;
+    --sidebar-background: 230 15% 8%;
+    --sidebar-foreground: 0 0% 85%;
+    --sidebar-primary: 292 91% 62%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 292 50% 15%;
+    --sidebar-accent-foreground: 0 0% 95%;
+    --sidebar-border: 0 0% 14%;
+    --sidebar-ring: 292 91% 62%;
+  }
+
+  /* ── Light mode overrides ── */
+  html:not(.dark) {
+    --background: 0 0% 97%;
+    --foreground: 0 0% 10%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 10%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 10%;
+    --primary: 292 91% 50%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 0 0% 93%;
+    --secondary-foreground: 0 0% 15%;
+    --muted: 0 0% 93%;
+    --muted-foreground: 0 0% 45%;
+    --accent: 44 100% 48%;
+    --accent-foreground: 0 0% 5%;
+    --destructive: 0 84% 55%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 86%;
+    --input: 0 0% 86%;
+    --ring: 292 91% 50%;
+    --chart-1: 292 91% 50%;
+    --chart-2: 44 100% 48%;
+    --chart-3: 200 80% 45%;
+    --chart-4: 150 60% 40%;
+    --chart-5: 30 90% 50%;
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 0 0% 20%;
+    --sidebar-primary: 292 91% 50%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 292 30% 92%;
+    --sidebar-accent-foreground: 292 91% 35%;
+    --sidebar-border: 0 0% 88%;
+    --sidebar-ring: 292 91% 50%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: hsl(0 0% 8%);
+}
+::-webkit-scrollbar-thumb {
+  background: hsl(0 0% 20%);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(292 91% 62% / 0.5);
+}
+
+/* Glass morphism utility */
+.glass {
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(224, 64, 251, 0.12);
+}
+
+.glass-hover:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(224, 64, 251, 0.25);
+}
+
+/* Neon glow effects */
+.neon-magenta {
+  box-shadow: 0 0 15px rgba(224, 64, 251, 0.15), 0 0 40px rgba(224, 64, 251, 0.05);
+}
+
+.neon-gold {
+  box-shadow: 0 0 15px rgba(255, 215, 0, 0.15), 0 0 40px rgba(255, 215, 0, 0.05);
+}
+
+/* Gradient text */
+.gradient-text {
+  background: linear-gradient(135deg, #e040fb, #ffd700);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.gradient-text-magenta {
+  background: linear-gradient(135deg, #e040fb, #b040d0);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Gradient backgrounds */
+.gradient-magenta {
+  background: linear-gradient(135deg, #e040fb, #9c27b0);
+}
+
+.gradient-magenta-purple {
+  background: linear-gradient(135deg, #e040fb, #7c4dff);
+}
+
+/* Animated gradient border */
+@keyframes borderGlow {
+  0%, 100% { border-color: rgba(224, 64, 251, 0.2); }
+  50% { border-color: rgba(224, 64, 251, 0.5); }
+}
+
+.animate-border-glow {
+  animation: borderGlow 3s ease-in-out infinite;
+}
+
+/* Native date/time pickers (icon, calendar/clock popovers) render
+   near-invisible on this app's dark background — use the dark UA scheme. */
+input[type="date"],
+input[type="time"],
+input[type="datetime-local"] {
+  color-scheme: dark;
+}
+
+/* Edge-fade mask so a full-width image blends into the page background
+   without a hard demarcation line. */
+.mask-fade-edges {
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    transparent 0%,
+    rgba(0, 0, 0, 0.7) 30%,
+    rgba(0, 0, 0, 0.7) 70%,
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0%,
+    rgba(0, 0, 0, 0.7) 30%,
+    rgba(0, 0, 0, 0.7) 70%,
+    transparent 100%
+  );
+}
+
+/* Slow Ken Burns pan/zoom to give the hero banner subtle motion. */
+@keyframes kenburns {
+  0% {
+    transform: scale(1.05) translateX(0);
+  }
+  50% {
+    transform: scale(1.15) translateX(-1.5%);
+  }
+  100% {
+    transform: scale(1.05) translateX(0);
+  }
+}
+
+.animate-kenburns {
+  animation: kenburns 12s ease-in-out infinite;
+}

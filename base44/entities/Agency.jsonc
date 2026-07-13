@@ -1,0 +1,52 @@
+{
+  "name": "Agency",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Agency name"
+    },
+    "owner_email": {
+      "type": "string",
+      "description": "Owner email address"
+    },
+    "logo_url": {
+      "type": "string",
+      "description": "Logo image URL"
+    },
+    "domain": {
+      "type": "string",
+      "description": "Agency domain"
+    },
+    "plan_tier": {
+      "type": "string",
+      "enum": [
+        "starter",
+        "growth",
+        "agency"
+      ],
+      "default": "starter"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "inactive",
+        "suspended"
+      ],
+      "default": "active"
+    },
+    "brand_colors": {
+      "type": "string",
+      "description": "JSON string of brand colors"
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 1000
+    }
+  },
+  "required": [
+    "name",
+    "owner_email"
+  ]
+}

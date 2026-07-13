@@ -1,0 +1,63 @@
+{
+  "name": "Subscription",
+  "type": "object",
+  "properties": {
+    "owner_email": {
+      "type": "string"
+    },
+    "client_id": {
+      "type": "string"
+    },
+    "plan_name": {
+      "type": "string"
+    },
+    "plan_tier": {
+      "type": "string",
+      "description": "Lane 1 (Business): creator, starter, growth, agency. Lane 2 (Movie Maker Pro): indie, studio, dubbing_house, enterprise. Platform add-on: byok. See base44/functions/stripeCheckoutCREAM/entry.ts's PLANS map for the canonical prices these map to.",
+      "enum": [
+        "free",
+        "creator",
+        "starter",
+        "growth",
+        "agency",
+        "indie",
+        "studio",
+        "dubbing_house",
+        "enterprise",
+        "byok"
+      ]
+    },
+    "stripe_subscription_id": {
+      "type": "string"
+    },
+    "stripe_customer_id": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "cancelled",
+        "past_due",
+        "trialing"
+      ],
+      "default": "active"
+    },
+    "current_period_end": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "credits_balance": {
+      "type": "number",
+      "default": 0,
+      "description": "Pay-as-you-go AI generation credits. 1 credit = 1 AI image/video generation, consumed after the free-trial allowance is used up."
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 1000
+    }
+  },
+  "required": [
+    "plan_name"
+  ]
+}

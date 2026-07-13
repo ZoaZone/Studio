@@ -1,0 +1,58 @@
+{
+  "name": "ContentAsset",
+  "type": "object",
+  "properties": {
+    "client_id": {
+      "type": "string"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "image",
+        "video",
+        "script",
+        "theme",
+        "ad_copy",
+        "email_template",
+        "sms_template",
+        "caption",
+        "hashtag_set",
+        "brand_kit"
+      ]
+    },
+    "title": {
+      "type": "string"
+    },
+    "content": {
+      "type": "string"
+    },
+    "file_url": {
+      "type": "string"
+    },
+    "platform": {
+      "type": "string"
+    },
+    "dimensions": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "ready",
+        "archived"
+      ],
+      "default": "ready"
+    },
+    "ai_generated": {
+      "type": "boolean",
+      "default": false
+    },
+    "prompt_used": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "title"
+  ]
+}
