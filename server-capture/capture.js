@@ -213,14 +213,89 @@ async function installNetworkSandbox(context, allowedOrigins) {
 }
 
 const LOGIN_SETTLE_MS = 2500;
+// Bounded wait for network activity to quiet down after a submit — a
+// redirect or SPA re-render needs this to actually finish before the
+// success check runs, but a page with persistent background polling/
+// analytics could otherwise never go idle, so this is capped rather than
+// awaited unconditionally.
+const LOGIN_NETWORKIDLE_TIMEOUT_MS = 8000;
+// Up to 2 retries beyond the first attempt — some flows redirect back to
+// the login form (with an error) on the first submit and need a second
+// click to actually go through; capped so a form that's genuinely wrong
+// can't loop indefinitely.
+const LOGIN_MAX_ATTEMPTS = 3;
+const SUBMIT_BUTTON_NAME_PATTERN = /sign ?in|log ?in|continue|submit/i;
+
+// Waits for the page to settle after a submit: networkidle first (bounded,
+// so it can't hang on a page that never fully quiets down), then a short
+// fixed dwell as a floor/fallback. Used after every submit attempt,
+// including retries, so a redirect-triggered re-render has time to finish
+// before the next check runs.
+async function settleAfterSubmit(page) {
+  await page.waitForLoadState("networkidle", { timeout: LOGIN_NETWORKIDLE_TIMEOUT_MS }).catch(() => {});
+  await page.waitForTimeout(LOGIN_SETTLE_MS);
+}
+
+// Tries a real submit control before ever falling back to Enter — some
+// multi-step login forms only advance on an actual button click. Returns
+// true if a button was found and clicked.
+async function clickLikelySubmitButton(page) {
+  const typeSubmit = page.locator('button[type="submit"], input[type="submit"]').first();
+  if (await typeSubmit.isVisible({ timeout: 1500 }).catch(() => false)) {
+    await typeSubmit.click({ timeout: 5000 }).catch(() => {});
+    return true;
+  }
+  const byName = page.getByRole("button", { name: SUBMIT_BUTTON_NAME_PATTERN }).first();
+  if (await byName.isVisible({ timeout: 1500 }).catch(() => false)) {
+    await byName.click({ timeout: 5000 }).catch(() => {});
+    return true;
+  }
+  return false;
+}
+
+// Submit precedence: an explicit credentials.submitSelector always wins;
+// otherwise try to find a real submit-shaped button before ever falling
+// back to pressing Enter in the password field (still the final fallback
+// — it submits the large majority of real login forms with no selector
+// needed at all).
+async function submitLoginForm(page, credentials, passwordLocator) {
+  if (credentials.submitSelector) {
+    await page.click(credentials.submitSelector, { timeout: 5000 }).catch(() => {});
+    return;
+  }
+  if (await clickLikelySubmitButton(page)) return;
+  await passwordLocator.press("Enter").catch(() => {});
+}
+
+// The success check itself, factored out so it can be run twice: once
+// right after the retry loop, and once more (PA-7.4's "grace re-check")
+// if the first attempt says login hasn't succeeded yet — the redirect
+// chain (login -> set-cookie -> app) can take a beat longer than
+// settleAfterSubmit already waited for.
+async function checkLoginSuccess(page, credentials) {
+  const check = () => credentials.successSelector
+    ? page.locator(credentials.successSelector).first().isVisible({ timeout: 5000 }).catch(() => false)
+    : isLoginRequired(page).then((required) => !required);
+
+  if (await check()) return true;
+  await page.waitForLoadState("networkidle", { timeout: LOGIN_NETWORKIDLE_TIMEOUT_MS }).catch(() => {});
+  await page.waitForTimeout(LOGIN_SETTLE_MS);
+  return check();
+}
 
 // Attempts an auto-login using the caller-supplied selectors, falling back
 // to reasonable defaults for any that are omitted. Returns only a boolean
 // — never logs, throws, or returns anything containing the credential
 // values themselves, so a caught error or a "why did this fail" question
 // can never leak them. credentials is used by value here and nowhere
-// retained; the caller (runCapture) holds the only reference and it goes
-// out of scope once runCapture returns.
+// retained; the caller (runCapture/runAppDemoWalkthrough) holds the only
+// reference and it goes out of scope once this call returns.
+//
+// Retries the fill+submit up to LOGIN_MAX_ATTEMPTS times if the page is
+// still login-shaped afterward — a redirect back to the login form
+// (typically with an error) that needs a second submit to actually go
+// through — before falling through to the tolerant, grace-rechecked
+// success determination.
 async function performLogin(page, credentials, targetOrigin) {
   const loginUrl = normalizeUrl(credentials.loginUrl) || targetOrigin;
   await page.goto(loginUrl, { waitUntil: "domcontentloaded", timeout: GOTO_TIMEOUT_MS });
@@ -232,31 +307,38 @@ async function performLogin(page, credentials, targetOrigin) {
 
   const usernameSelector = credentials.usernameField
     || 'input[type="email"], input[type="text"][name*="user" i], input[type="text"][name*="email" i], input[name*="email" i], input[name*="user" i]';
-  const usernameLocator = page.locator(usernameSelector).first();
-  if (await usernameLocator.isVisible({ timeout: 2000 }).catch(() => false)) {
-    await usernameLocator.fill(String(credentials.username || "")).catch(() => {});
-  }
-  await passwordLocator.fill(String(credentials.password || "")).catch(() => {});
 
-  if (credentials.submitSelector) {
-    await page.click(credentials.submitSelector, { timeout: 5000 }).catch(() => {});
-  } else {
-    // No explicit submit control given — Enter in the password field
-    // submits the large majority of real login forms without needing to
-    // guess a submit button's selector.
-    await passwordLocator.press("Enter").catch(() => {});
+  for (let attempt = 1; attempt <= LOGIN_MAX_ATTEMPTS; attempt++) {
+    const usernameLocator = page.locator(usernameSelector).first();
+    if (await usernameLocator.isVisible({ timeout: 2000 }).catch(() => false)) {
+      await usernameLocator.fill(String(credentials.username || "")).catch(() => {});
+    }
+    await passwordLocator.fill(String(credentials.password || "")).catch(() => {});
+
+    await submitLoginForm(page, credentials, passwordLocator);
+    await settleAfterSubmit(page);
+    await declineCookieBanner(page);
+
+    const stillOnLoginPage = await isLoginRequired(page);
+    if (!stillOnLoginPage) break;
+
+    const passwordStillVisible = await passwordLocator.isVisible().catch(() => false);
+    if (attempt < LOGIN_MAX_ATTEMPTS && passwordStillVisible) {
+      console.log(`[capture] login attempt ${attempt}: still on login page, retrying.`);
+      continue;
+    }
+    break; // out of attempts, or no password field left to retry with
   }
 
-  await page.waitForTimeout(LOGIN_SETTLE_MS);
-  await declineCookieBanner(page);
-
-  if (credentials.successSelector) {
-    return page.locator(credentials.successSelector).first().isVisible({ timeout: 5000 }).catch(() => false);
+  const success = await checkLoginSuccess(page, credentials);
+  if (!success) {
+    // Diagnostics only — never the credentials themselves. redactUrl
+    // strips query/hash, same rule every other logged URL in this file
+    // follows.
+    const passwordStillVisible = await passwordLocator.isVisible().catch(() => false);
+    console.log(`[capture] login did not succeed — final url: ${redactUrl(page.url())}, password field still visible: ${passwordStillVisible}.`);
   }
-  // No explicit success selector — the inverse of isLoginRequired (no
-  // visible password field, no login-shaped URL) is a solid default signal
-  // that the session moved past the login page.
-  return !(await isLoginRequired(page));
+  return success;
 }
 
 // Pre-click check: refuses an off-origin link (checked from its href
