@@ -160,13 +160,24 @@ export default function Auth() {
     const safeFrom = (from && !/\/(login|auth|\/)/i.test(from)) ? from : DASHBOARD;
     try {
       await base44.auth.loginViaEmailPassword(email.trim().toLowerCase(), password);
-      navigate(safeFrom, { replace: true });
+      // A hard navigation, not react-router's navigate() — appParams.js
+      // snapshots the access token once at module load, and base44Client.js
+      // builds the SDK client from that same frozen snapshot, so a client-
+      // side-only route change here left AuthProvider/base44's client still
+      // believing the user was logged out, which bounced straight back to
+      // /auth (the exact "enter password, land back on login" bug this
+      // fixes). window.location.href forces app-params/base44Client/
+      // AuthProvider to all re-initialize fresh against the token
+      // loginViaEmailPassword just persisted — same pattern AdminLogin.jsx
+      // already uses for this same reason.
+      window.location.href = safeFrom;
     } catch (err) {
       const msg = err?.message || "";
       setError(msg.includes("password") || msg.includes("credential") || msg.includes("Invalid")
         ? "Incorrect email or password. Try again or use 'Forgot password' to reset."
         : (msg || "Sign in failed. Please try again."));
-    } finally { setLoading(false); }
+      setLoading(false);
+    }
   };
 
   // ── Step 3: Submit password (signup / reset only — login never reaches
@@ -187,19 +198,21 @@ export default function Auth() {
         await base44.auth.register({ email: email.trim().toLowerCase(), password, full_name: mode === "signup" ? name.trim() : email.split("@")[0] });
       } catch (_) { /* already registered — fall through to login below */ }
       await base44.auth.loginViaEmailPassword(email.trim().toLowerCase(), password);
-      navigate(safeFrom, { replace: true });
+      // Hard navigation — see submitLogin's comment above for why.
+      window.location.href = safeFrom;
     } catch (err) {
       const msg = err?.message || "";
       if (msg.includes("already") || msg.includes("exists")) {
         try {
           await base44.auth.loginViaEmailPassword(email.trim().toLowerCase(), password);
-          navigate(safeFrom, { replace: true });
+          window.location.href = safeFrom;
           return;
-        } catch (e2) { setError(e2?.message || "Authentication failed."); }
+        } catch (e2) { setError(e2?.message || "Authentication failed."); setLoading(false); }
       } else {
         setError(msg || "Authentication failed. Please try again.");
+        setLoading(false);
       }
-    } finally { setLoading(false); }
+    }
   };
 
   // ─── UI helpers ───────────────────────────────────────────────────────────
