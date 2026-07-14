@@ -852,8 +852,7 @@ async function executeScriptedAction(page, action) {
   } else if (action.type === "typeText") {
     await target.locator.fill(String(action.text ?? ""), { timeout: 5000 }).catch(() => { });
   }
-}
-  // "scroll" actions are satisfied by resolveTargetPoint's own
+// "scroll" actions are satisfied by resolveTargetPoint's own
   // scrollIntoViewIfNeeded — the cursor has already glided to the
   // now-visible target, nothing further to do.
 }
