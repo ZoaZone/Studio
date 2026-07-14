@@ -246,7 +246,7 @@ export default function Home() {
             <a href="#testimonials" className="hover:text-white transition-colors">Reviews</a>
           </div>
           <div className="hidden md:flex items-center gap-4">
-            <Link to="/login" className="text-sm font-bold text-white/80 hover:text-white transition-colors">Sign In</Link>
+            <Link to="/auth" className="text-sm font-bold text-white/80 hover:text-white transition-colors">Sign In</Link>
             <Link to="/free-trial" className="text-sm font-bold px-6 py-2.5 rounded-full bg-white text-black hover:bg-neutral-200 transition-colors shadow-[0_0_20px_rgba(255,255,255,0.1)]">
               Start Free Trial
             </Link>
@@ -262,7 +262,7 @@ export default function Home() {
             <a key={s} href={`#${s}`} className="block text-base font-medium text-white/80 py-2 capitalize" onClick={() => setMobileOpen(false)}>{s}</a>
             )}
             <div className="pt-4 flex flex-col gap-3">
-              <Link to="/login" className="block text-center py-3 rounded-xl border border-white/10 font-bold">Sign In</Link>
+              <Link to="/auth" className="block text-center py-3 rounded-xl border border-white/10 font-bold">Sign In</Link>
               <Link to="/free-trial" className="block text-center py-3 rounded-xl bg-white text-black font-bold">Start Free Trial</Link>
             </div>
           </div>

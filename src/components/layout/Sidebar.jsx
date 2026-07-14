@@ -116,7 +116,7 @@ export default function Sidebar({ userTier = 0, isAdmin = false, user = null }) 
     localStorage.removeItem("base44_access_token");
     localStorage.removeItem("base44_refresh_token");
     sessionStorage.clear();
-    base44.auth.logout("/login");
+    base44.auth.logout("/auth");
   };
 
   const navContent = (

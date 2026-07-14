@@ -108,7 +108,7 @@ export const AuthProvider = ({ children }) => {
     sessionStorage.clear();
     setUser(null);
     setIsAuthenticated(false);
-    base44.auth.logout("/login");
+    base44.auth.logout("/auth");
   };
 
   // BUG-001 FIX: Guard against redirect loop — don't redirect if already on login/auth

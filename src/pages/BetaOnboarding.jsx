@@ -242,7 +242,7 @@ export default function BetaOnboarding() {
           </button>
 
           <p className="text-center text-white/20 text-xs mt-5">
-            No code? <a href="/beta" className="text-fuchsia-400 hover:text-fuchsia-300">Request beta access</a> · <a href="/login" className="text-white/30 hover:text-white/50">Sign in</a>
+            No code? <a href="/beta" className="text-fuchsia-400 hover:text-fuchsia-300">Request beta access</a> · <a href="/auth" className="text-white/30 hover:text-white/50">Sign in</a>
           </p>
         </div>
       </div>
@@ -262,7 +262,7 @@ export default function BetaOnboarding() {
           <a href="/invite" className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-fuchsia-500/10 border border-fuchsia-500/20 text-fuchsia-400 rounded-xl font-semibold text-sm hover:bg-fuchsia-500/20 transition-colors">
             Enter Code Manually <ArrowRight className="w-4 h-4" />
           </a>
-          <a href="/login" className="inline-block px-6 py-3 border border-white/10 text-white/50 rounded-xl font-semibold text-sm hover:border-white/20 transition-colors">
+          <a href="/auth" className="inline-block px-6 py-3 border border-white/10 text-white/50 rounded-xl font-semibold text-sm hover:border-white/20 transition-colors">
             Sign In Instead
           </a>
         </div>
@@ -373,7 +373,7 @@ export default function BetaOnboarding() {
               </button>
 
               <p className="text-center text-white/20 text-xs mt-4">
-                Already have an account? <a href="/login" className="text-fuchsia-400 hover:text-fuchsia-300">Sign in</a>
+                Already have an account? <a href="/auth" className="text-fuchsia-400 hover:text-fuchsia-300">Sign in</a>
               </p>
             </div>
           )}

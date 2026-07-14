@@ -97,34 +97,50 @@ Deno.serve(async (req) => {
       const html = buildEmailHtml(otp, purpose);
       const text = `Your ${purpose === 'reset' ? 'password reset' : 'verification'} code for media.aevoice.ai is: ${otp}\n\nValid for 10 minutes.\n\n— The media.aevoice.ai Team\nhttps://media.aevoice.ai`;
 
+      // Each provider attempt is independently try/caught — a thrown
+      // network error from Resend must not skip trying SendGrid/Base44
+      // next, the same way a non-ok response already falls through. Every
+      // failure is logged with its actual status/body so a "code never
+      // arrived" report can be diagnosed from Railway/Base44 logs instead
+      // of guessing.
       let provider = 'none';
       const resendKey = Deno.env.get('RESEND_API_KEY');
       if (resendKey) {
-        const fromEmail = (Deno.env.get('RESEND_FROM_EMAIL') || 'hello@media.aevoice.ai').trim();
-        const fromField = fromEmail.includes('<') ? fromEmail : `media.aevoice.ai <${fromEmail}>`;
-        const res = await fetch('https://api.resend.com/emails', {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ from: fromField, to: [email], subject, text, html }),
-        });
-        if (res.ok) provider = 'resend';
+        try {
+          const fromEmail = (Deno.env.get('RESEND_FROM_EMAIL') || 'hello@media.aevoice.ai').trim();
+          const fromField = fromEmail.includes('<') ? fromEmail : `media.aevoice.ai <${fromEmail}>`;
+          const res = await fetch('https://api.resend.com/emails', {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ from: fromField, to: [email], subject, text, html }),
+          });
+          if (res.ok) provider = 'resend';
+          else console.warn(`sendAuthOTP: Resend send failed (${res.status}): ${await res.text().catch(() => '')}`);
+        } catch (e) {
+          console.warn('sendAuthOTP: Resend send threw:', e.message);
+        }
       }
 
       if (provider === 'none') {
         const sgKey = Deno.env.get('SENDGRID_API_KEY');
         if (sgKey) {
-          const sgFrom = Deno.env.get('SENDGRID_FROM_EMAIL') || 'care@media.aevoice.ai';
-          const sgRes = await fetch('https://api.sendgrid.com/v3/mail/send', {
-            method: 'POST',
-            headers: { Authorization: `Bearer ${sgKey}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              personalizations: [{ to: [{ email }] }],
-              from: { email: sgFrom, name: 'media.aevoice.ai' },
-              subject,
-              content: [{ type: 'text/plain', value: text }, { type: 'text/html', value: html }],
-            }),
-          });
-          if (sgRes.ok) provider = 'sendgrid';
+          try {
+            const sgFrom = Deno.env.get('SENDGRID_FROM_EMAIL') || 'care@media.aevoice.ai';
+            const sgRes = await fetch('https://api.sendgrid.com/v3/mail/send', {
+              method: 'POST',
+              headers: { Authorization: `Bearer ${sgKey}`, 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                personalizations: [{ to: [{ email }] }],
+                from: { email: sgFrom, name: 'media.aevoice.ai' },
+                subject,
+                content: [{ type: 'text/plain', value: text }, { type: 'text/html', value: html }],
+              }),
+            });
+            if (sgRes.ok) provider = 'sendgrid';
+            else console.warn(`sendAuthOTP: SendGrid send failed (${sgRes.status}): ${await sgRes.text().catch(() => '')}`);
+          } catch (e) {
+            console.warn('sendAuthOTP: SendGrid send threw:', e.message);
+          }
         }
       }
 
@@ -133,8 +149,20 @@ Deno.serve(async (req) => {
           await base44.asServiceRole.integrations.Core.SendEmail({ to: email, subject, body: text });
           provider = 'base44';
         } catch (e) {
-          console.warn('Base44 email failed:', e.message);
+          console.warn('sendAuthOTP: Base44 email failed:', e.message);
         }
+      }
+
+      // Never claim success when nothing actually went out — the caller
+      // (Auth.jsx) would otherwise advance straight to "enter the code we
+      // emailed you" for a code that was never sent. A real error status
+      // here makes base44.functions.invoke reject, so the existing catch
+      // block in Auth.jsx surfaces it instead of silently proceeding.
+      if (provider === 'none') {
+        return Response.json(
+          { error: 'Could not send the verification email right now. Please try again shortly.' },
+          { status: 502, headers }
+        );
       }
 
       return Response.json({ success: true, provider }, { headers });

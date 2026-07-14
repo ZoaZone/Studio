@@ -148,32 +148,49 @@ export default function Auth() {
     if (val.length === 6) setTimeout(() => verifyOTP(val), 200);
   };
 
-  // ── Step 3: Submit password ──────────────────────────────────────────────
+  // ── Direct login: no OTP — a returning user already has a password, which
+  // *is* their verification. Email verification (OTP) is only required to
+  // create an account (signup) or to prove ownership before a password
+  // reset — see submitPassword below, which still handles both of those.
+  const submitLogin = async (e) => {
+    e?.preventDefault();
+    if (!email || !email.includes("@")) { setError("Please enter a valid email address."); return; }
+    if (!password) { setError("Please enter your password."); return; }
+    setLoading(true); setError("");
+    const safeFrom = (from && !/\/(login|auth|\/)/i.test(from)) ? from : DASHBOARD;
+    try {
+      await base44.auth.loginViaEmailPassword(email.trim().toLowerCase(), password);
+      navigate(safeFrom, { replace: true });
+    } catch (err) {
+      const msg = err?.message || "";
+      setError(msg.includes("password") || msg.includes("credential") || msg.includes("Invalid")
+        ? "Incorrect email or password. Try again or use 'Forgot password' to reset."
+        : (msg || "Sign in failed. Please try again."));
+    } finally { setLoading(false); }
+  };
+
+  // ── Step 3: Submit password (signup / reset only — login never reaches
+  // this, see submitLogin above) ───────────────────────────────────────────
   const submitPassword = async (e) => {
     e?.preventDefault();
     if (password.length < 8) { setError("Password must be at least 8 characters."); return; }
-    if (mode !== "login" && password !== confirm) { setError("Passwords do not match."); return; }
+    if (password !== confirm) { setError("Passwords do not match."); return; }
     if (mode === "signup" && !name.trim()) { setError("Please enter your full name."); return; }
     setLoading(true); setError("");
     const safeFrom = (from && !/\/(login|auth|\/)/i.test(from)) ? from : DASHBOARD;
     try {
-      if (mode === "signup") {
-        try { await base44.auth.register({ email: email.trim().toLowerCase(), password, full_name: name.trim() }); } catch (_) {}
-        await base44.auth.loginViaEmailPassword(email.trim().toLowerCase(), password);
-      } else if (mode === "reset") {
-        try { await base44.auth.register({ email: email.trim().toLowerCase(), password, full_name: email.split("@")[0] }); } catch (_) {}
-        await base44.auth.loginViaEmailPassword(email.trim().toLowerCase(), password);
-      } else {
-        // login
-        await base44.auth.loginViaEmailPassword(email.trim().toLowerCase(), password);
-      }
+      // signup and reset both land here only after OTP has verified the
+      // email; reset "resets" the password by re-registering the
+      // already-verified email with a fresh one, rather than a separate
+      // reset-token mechanism.
+      try {
+        await base44.auth.register({ email: email.trim().toLowerCase(), password, full_name: mode === "signup" ? name.trim() : email.split("@")[0] });
+      } catch (_) { /* already registered — fall through to login below */ }
+      await base44.auth.loginViaEmailPassword(email.trim().toLowerCase(), password);
       navigate(safeFrom, { replace: true });
     } catch (err) {
       const msg = err?.message || "";
-      if (mode === "login" && (msg.includes("password") || msg.includes("credential") || msg.includes("Invalid"))) {
-        setError("Incorrect password. Try again or use 'Forgot password' to reset.");
-      } else if (msg.includes("already") || msg.includes("exists")) {
-        // User exists — just try login
+      if (msg.includes("already") || msg.includes("exists")) {
         try {
           await base44.auth.loginViaEmailPassword(email.trim().toLowerCase(), password);
           navigate(safeFrom, { replace: true });
@@ -252,8 +269,50 @@ export default function Auth() {
             <div className="p-3 rounded-xl text-xs bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-center">✓ New code sent to {email}</div>
           )}
 
-          {/* ── STEP: EMAIL ── */}
-          {flow === "email" && (
+          {/* ── STEP: EMAIL (login) — combined email+password, no OTP.
+              A returning user already has a password; that's their
+              verification. ── */}
+          {flow === "email" && mode === "login" && (
+            <form onSubmit={submitLogin} className="space-y-4">
+              <div>
+                <label className="text-xs font-medium text-slate-300 block mb-1.5">Email address</label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                  <input type="email" value={email} required autoFocus
+                    onChange={e => setEmail(e.target.value)}
+                    placeholder="you@example.com"
+                    className="w-full pl-10 pr-3 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white text-sm focus:outline-none focus:border-violet-500 placeholder-slate-500 transition-colors" />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-medium text-slate-300 block mb-1.5">Password</label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                  <input type={showPw ? "text" : "password"} value={password} required
+                    onChange={e => setPassword(e.target.value)}
+                    placeholder="Your password"
+                    className="w-full pl-10 pr-10 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white text-sm focus:outline-none focus:border-violet-500 placeholder-slate-500 transition-colors" />
+                  <button type="button" onClick={() => setShowPw(s => !s)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors">
+                    {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+              <button type="submit" disabled={loading || !email || !password}
+                className="w-full py-3 rounded-xl bg-gradient-to-r from-violet-600 to-purple-600 text-white text-sm font-bold transition-all disabled:opacity-50 flex items-center justify-center gap-2 hover:opacity-90 shadow-lg shadow-violet-500/20">
+                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                {loading ? "Signing in..." : "Sign In"}
+              </button>
+              <button type="button" onClick={() => resetFlow("reset")}
+                className="w-full text-center text-xs text-slate-500 hover:text-violet-400 transition-colors py-1">
+                Forgot password?
+              </button>
+            </form>
+          )}
+
+          {/* ── STEP: EMAIL (signup / reset) — email only; OTP verifies the
+              address before a password can be set. ── */}
+          {flow === "email" && mode !== "login" && (
             <form onSubmit={sendOTP} className="space-y-4">
               <div>
                 <label className="text-xs font-medium text-slate-300 block mb-1.5">Email address</label>
@@ -270,12 +329,6 @@ export default function Auth() {
                 {otpSending ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
                 {otpSending ? "Sending code..." : "Send Verification Code →"}
               </button>
-              {mode === "login" && (
-                <button type="button" onClick={() => resetFlow("reset")}
-                  className="w-full text-center text-xs text-slate-500 hover:text-violet-400 transition-colors py-1">
-                  Forgot password?
-                </button>
-              )}
             </form>
           )}
 
