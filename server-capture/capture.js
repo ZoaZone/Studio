@@ -820,7 +820,6 @@ export const DIGITAL_STUDIOS_AUTHENTICATED_DEMO_STEPS = [
     ],
   },
 ];
-]
 
 // Resolves a selector to its live element, scrolls it into view, and
 // returns the cursor destination point (its bounding box's center) along
