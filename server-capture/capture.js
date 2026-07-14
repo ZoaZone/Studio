@@ -162,7 +162,7 @@ async function declineCookieBanner(page) {
     try {
       const btn = page.getByRole("button", { name: pattern }).first();
       if (await btn.isVisible({ timeout: 800 }).catch(() => false)) {
-        await btn.click({ timeout: 2000 }).catch(() => {});
+        await btn.click({ timeout: 2000 }).catch(() => { });
         return true;
       }
     } catch {
@@ -232,7 +232,7 @@ const SUBMIT_BUTTON_NAME_PATTERN = /sign ?in|log ?in|continue|submit/i;
 // including retries, so a redirect-triggered re-render has time to finish
 // before the next check runs.
 async function settleAfterSubmit(page) {
-  await page.waitForLoadState("networkidle", { timeout: LOGIN_NETWORKIDLE_TIMEOUT_MS }).catch(() => {});
+  await page.waitForLoadState("networkidle", { timeout: LOGIN_NETWORKIDLE_TIMEOUT_MS }).catch(() => { });
   await page.waitForTimeout(LOGIN_SETTLE_MS);
 }
 
@@ -242,12 +242,12 @@ async function settleAfterSubmit(page) {
 async function clickLikelySubmitButton(page) {
   const typeSubmit = page.locator('button[type="submit"], input[type="submit"]').first();
   if (await typeSubmit.isVisible({ timeout: 1500 }).catch(() => false)) {
-    await typeSubmit.click({ timeout: 5000 }).catch(() => {});
+    await typeSubmit.click({ timeout: 5000 }).catch(() => { });
     return true;
   }
   const byName = page.getByRole("button", { name: SUBMIT_BUTTON_NAME_PATTERN }).first();
   if (await byName.isVisible({ timeout: 1500 }).catch(() => false)) {
-    await byName.click({ timeout: 5000 }).catch(() => {});
+    await byName.click({ timeout: 5000 }).catch(() => { });
     return true;
   }
   return false;
@@ -260,11 +260,11 @@ async function clickLikelySubmitButton(page) {
 // needed at all).
 async function submitLoginForm(page, credentials, passwordLocator) {
   if (credentials.submitSelector) {
-    await page.click(credentials.submitSelector, { timeout: 5000 }).catch(() => {});
+    await page.click(credentials.submitSelector, { timeout: 5000 }).catch(() => { });
     return;
   }
   if (await clickLikelySubmitButton(page)) return;
-  await passwordLocator.press("Enter").catch(() => {});
+  await passwordLocator.press("Enter").catch(() => { });
 }
 
 // The success check itself, factored out so it can be run twice: once
@@ -278,7 +278,7 @@ async function checkLoginSuccess(page, credentials) {
     : isLoginRequired(page).then((required) => !required);
 
   if (await check()) return true;
-  await page.waitForLoadState("networkidle", { timeout: LOGIN_NETWORKIDLE_TIMEOUT_MS }).catch(() => {});
+  await page.waitForLoadState("networkidle", { timeout: LOGIN_NETWORKIDLE_TIMEOUT_MS }).catch(() => { });
   await page.waitForTimeout(LOGIN_SETTLE_MS);
   return check();
 }
@@ -298,13 +298,13 @@ async function checkLoginSuccess(page, credentials) {
 // success determination.
 async function performLogin(page, credentials, targetOrigin) {
   const loginUrl = normalizeUrl(credentials.loginUrl) || targetOrigin;
-    await page.goto(loginUrl, { waitUntil: "networkidle", timeout: GOTO_TIMEOUT_MS });
+  await page.goto(loginUrl, { waitUntil: "networkidle", timeout: GOTO_TIMEOUT_MS });
   await declineCookieBanner(page);
 
   const passwordSelector = credentials.passwordField || 'input[type="password"]';
   const passwordLocator = page.locator(passwordSelector).first();
-    await passwordLocator.waitFor({ state: "visible", timeout: 30000 }).catch(() => {});
-        if (!(await passwordLocator.isVisible({ timeout: 20000 }).catch(() => false))) return false;
+  await passwordLocator.waitFor({ state: "visible", timeout: 30000 }).catch(() => { });
+  if (!(await passwordLocator.isVisible({ timeout: 20000 }).catch(() => false))) return false;
 
   const usernameSelector = credentials.usernameField
     || 'input[type="email"], input[type="text"][name*="user" i], input[type="text"][name*="email" i], input[name*="email" i], input[name*="user" i]';
@@ -312,9 +312,9 @@ async function performLogin(page, credentials, targetOrigin) {
   for (let attempt = 1; attempt <= LOGIN_MAX_ATTEMPTS; attempt++) {
     const usernameLocator = page.locator(usernameSelector).first();
     if (await usernameLocator.isVisible({ timeout: 2000 }).catch(() => false)) {
-      await usernameLocator.fill(String(credentials.username || "")).catch(() => {});
+      await usernameLocator.fill(String(credentials.username || "")).catch(() => { });
     }
-    await passwordLocator.fill(String(credentials.password || "")).catch(() => {});
+    await passwordLocator.fill(String(credentials.password || "")).catch(() => { });
 
     await submitLoginForm(page, credentials, passwordLocator);
     await settleAfterSubmit(page);
@@ -509,7 +509,7 @@ async function uploadResult(filePath) {
  * the target's and login page's origins only, for the duration of the
  * whole capture (see installNetworkSandbox) — a Phase 2-only restriction.
  */
-export async function runCapture(spec, onProgress = () => {}, credentials = null) {
+export async function runCapture(spec, onProgress = () => { }, credentials = null) {
   const targetUrl = normalizeUrl(spec?.url);
   if (!targetUrl) throw new Error("A valid http(s) url is required.");
   const targetOrigin = new URL(targetUrl).origin;
@@ -526,7 +526,7 @@ export async function runCapture(spec, onProgress = () => {}, credentials = null
       acceptDownloads: false,
     });
     const page = await context.newPage();
-    page.on("download", (d) => { d.cancel().catch(() => {}); });
+    page.on("download", (d) => { d.cancel().catch(() => { }); });
 
     const deadline = Date.now() + CAPTURE_MAX_SECONDS * 1000;
 
@@ -598,8 +598,8 @@ export async function runCapture(spec, onProgress = () => {}, credentials = null
     const { videoUrl, durationSeconds } = await finalizeRecording(video, workDir, onProgress);
     return { status: "done", videoUrl, durationSeconds, pageInfo };
   } finally {
-    if (browser) await browser.close().catch(() => {});
-    await fs.rm(workDir, { recursive: true, force: true }).catch(() => {});
+    if (browser) await browser.close().catch(() => { });
+    await fs.rm(workDir, { recursive: true, force: true }).catch(() => { });
   }
 }
 
@@ -743,58 +743,84 @@ export const DIGITAL_STUDIOS_AUTHENTICATED_DEMO_STEPS = [
   {
     path: "/dashboard",
     label: "Dashboard",
-    narration: "Your dashboard summarizes campaigns, content, and performance at a glance — every other tool in the studio is one click away from here.",
-    dwellMs: 3000,
+    narration: "Welcome to Digital Studio — the all-in-one AI platform where one login gives creators every tool they need. This is your dashboard, the launch point for movies, songs, ads, and more.",
+    dwellMs: 4000,
     actions: [
       { type: "hover", selector: 'role=link[name="New Campaign"]' },
+      { type: "scroll", selector: "footer" },
     ],
   },
   {
     path: "/quick-create",
     label: "Quick Create",
-    narration: "Quick Create turns a single prompt into ready-to-post content — images, captions, and video — in minutes.",
+    narration: "Quick Create turns a single idea into ready-to-post content. Just describe what you want, and the AI generates images, captions, and video in minutes.",
     dwellMs: 3000,
     actions: [
-      { type: "scroll", selector: 'role=heading[name="Quick Create"]' },
+      { type: "typeText", selector: "textarea", text: "A vibrant product launch post for a new coffee brand, warm morning light" },
+      { type: "click", selector: 'role=button[name="Generate"]' },
+      { type: "scroll", selector: 'role=heading[name="Preview"]' },
     ],
   },
   {
     path: "/ad-creator",
     label: "Ad Creator",
-    narration: "Ad Creator generates on-brand ad copy and visuals for every platform, ready to review and publish.",
-    dwellMs: 3000,
+    narration: "Ad Creator builds on-brand ad copy and matching visuals for every platform. Generate the words and the artwork together, ready to review and publish.",
+    dwellMs: 3500,
     actions: [
-      { type: "scroll", selector: 'role=heading[name="Ad Creator"]' },
+      { type: "click", selector: 'role=button[name="Generate Ad Copy"]' },
+      { type: "hover", selector: 'role=button[name="Generate Ad Visual"]' },
     ],
   },
   {
     path: "/song-creator",
-    label: "Song Creator",
-    narration: "Song Creator writes original lyrics and renders AI voiceover, with dubbing into any other language.",
+    label: "Song Creator — AI Music",
+    narration: "Song Creator is where AI makes music. Pick a theme, genre, and mood, and it writes original lyrics — then renders them as a fully produced, sung song with instrumental backing.",
     dwellMs: 3000,
     actions: [
-      { type: "scroll", selector: 'role=heading[name="Song Creator"]' },
+      { type: "typeText", selector: 'input[placeholder*="Overcoming"]', text: "Rising from failure, chasing a dream" },
+      { type: "click", selector: 'role=button[name="Generate Lyrics"]' },
+    ],
+  },
+  {
+    path: "/song-creator",
+    label: "Song Creator — Full song render",
+    narration: "One click on Sung, Full song turns those lyrics into real AI-composed music — melody, vocals, and instrumentation — and it can be dubbed into any language.",
+    dwellMs: 5000,
+    actions: [
+      { type: "click", selector: 'role=button[name="Sung / Full song"]' },
     ],
   },
   {
     path: "/movie-maker",
-    label: "Movie Maker Pro",
-    narration: "Movie Maker Pro assembles feature-length AI films — scripted scenes, voiceover, music, subtitles, and dubbing — all in one project.",
-    dwellMs: 3500,
+    label: "Movie Maker Pro — Script",
+    narration: "Movie Maker Pro assembles feature-length AI films. Start with a story, and it generates a full script broken into scenes.",
+    dwellMs: 3000,
     actions: [
-      { type: "scroll", selector: 'role=heading[name="Movie Maker"]' },
+      { type: "typeText", selector: "textarea", text: "A short sci-fi film about a lighthouse keeper who discovers a signal from the sea" },
+      { type: "click", selector: 'role=button[name="Generate AI Script"]' },
+    ],
+  },
+  {
+    path: "/movie-maker",
+    label: "Movie Maker Pro — Music & Dubbing",
+    narration: "Every film gets AI music, voiceover, subtitles, and dubbing into any language — all inside one project, with your reference character carried through every scene.",
+    dwellMs: 4000,
+    actions: [
+      { type: "click", selector: 'role=button[name="Music"]' },
+      { type: "click", selector: 'role=button[name="Dubbing"]' },
     ],
   },
   {
     path: "/media-library",
     label: "Media Library",
-    narration: "Every asset you generate lands in one Media Library, ready to reuse across campaigns and projects.",
-    dwellMs: 3000,
+    narration: "Everything you create lands in one Media Library — songs, films, ads, and images — ready to reuse across any project. That's Digital Studio: one platform for all creative people.",
+    dwellMs: 3500,
     actions: [
       { type: "scroll", selector: 'role=heading[name="Media Library"]' },
     ],
   },
 ];
+]
 
 // Resolves a selector to its live element, scrolls it into view, and
 // returns the cursor destination point (its bounding box's center) along
@@ -802,7 +828,7 @@ export const DIGITAL_STUDIOS_AUTHENTICATED_DEMO_STEPS = [
 async function resolveTargetPoint(page, selector) {
   const locator = page.locator(selector).first();
   await locator.waitFor({ state: "visible", timeout: 8000 });
-  await locator.scrollIntoViewIfNeeded().catch(() => {});
+  await locator.scrollIntoViewIfNeeded().catch(() => { });
   const box = await locator.boundingBox();
   if (!box) throw new Error(`selector resolved but has no visible bounding box: ${selector}`);
   return { locator, x: box.x + box.width / 2, y: box.y + box.height / 2 };
@@ -821,10 +847,13 @@ async function executeScriptedAction(page, action) {
   const target = await resolveTargetPoint(page, action.selector);
   await moveCursorTo(page, target);
   if (action.type === "click") {
-    await target.locator.click({ timeout: 5000 }).catch(() => {});
+    await target.locator.click({ timeout: 5000 }).catch(() => { });
   } else if (action.type === "hover") {
-    await target.locator.hover({ timeout: 5000 }).catch(() => {});
+    await target.locator.hover({ timeout: 5000 }).catch(() => { });
+  } else if (action.type === "typeText") {
+    await target.locator.fill(String(action.text ?? ""), { timeout: 5000 }).catch(() => { });
   }
+}
   // "scroll" actions are satisfied by resolveTargetPoint's own
   // scrollIntoViewIfNeeded — the cursor has already glided to the
   // now-visible target, nothing further to do.
@@ -839,6 +868,8 @@ async function runScriptedStep(page, step, baseUrl, currentPathRef) {
     const dest = new URL(step.path, baseUrl).href;
     await page.goto(dest, { waitUntil: "domcontentloaded", timeout: GOTO_TIMEOUT_MS });
     await declineCookieBanner(page);
+    await page.waitForLoadState("networkidle", { timeout: 15000 }).catch(() => { });
+    await page.waitForTimeout(1200);
     currentPathRef.value = step.path;
   }
   for (const action of step.actions || []) {
@@ -892,7 +923,7 @@ async function runScriptedStep(page, step, baseUrl, currentPathRef) {
  * cleans up its own temp directory and browser process.
  */
 export async function runAppDemoWalkthrough(
-  onProgress = () => {},
+  onProgress = () => { },
   baseUrl = process.env.TARGET_BASE_URL || "https://digitalstudios.app",
   credentials = null
 ) {
@@ -908,7 +939,7 @@ export async function runAppDemoWalkthrough(
       acceptDownloads: false,
     });
     const page = await context.newPage();
-    page.on("download", (d) => { d.cancel().catch(() => {}); });
+    page.on("download", (d) => { d.cancel().catch(() => { }); });
 
     if (credentials) {
       const targetOrigin = new URL(baseUrl).origin;
@@ -992,7 +1023,7 @@ export async function runAppDemoWalkthrough(
       steps: steps.map(({ path: p, label, narration }) => ({ path: p, label, narration })),
     };
   } finally {
-    if (browser) await browser.close().catch(() => {});
-    await fs.rm(workDir, { recursive: true, force: true }).catch(() => {});
+    if (browser) await browser.close().catch(() => { });
+    await fs.rm(workDir, { recursive: true, force: true }).catch(() => { });
   }
 }
