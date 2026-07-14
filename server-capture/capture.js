@@ -298,12 +298,13 @@ async function checkLoginSuccess(page, credentials) {
 // success determination.
 async function performLogin(page, credentials, targetOrigin) {
   const loginUrl = normalizeUrl(credentials.loginUrl) || targetOrigin;
-  await page.goto(loginUrl, { waitUntil: "domcontentloaded", timeout: GOTO_TIMEOUT_MS });
+    await page.goto(loginUrl, { waitUntil: "networkidle", timeout: GOTO_TIMEOUT_MS });
   await declineCookieBanner(page);
 
   const passwordSelector = credentials.passwordField || 'input[type="password"]';
   const passwordLocator = page.locator(passwordSelector).first();
-  if (!(await passwordLocator.isVisible({ timeout: 5000 }).catch(() => false))) return false;
+    await passwordLocator.waitFor({ state: "visible", timeout: 30000 }).catch(() => {});
+        if (!(await passwordLocator.isVisible({ timeout: 20000 }).catch(() => false))) return false;
 
   const usernameSelector = credentials.usernameField
     || 'input[type="email"], input[type="text"][name*="user" i], input[type="text"][name*="email" i], input[name*="email" i], input[name*="user" i]';
