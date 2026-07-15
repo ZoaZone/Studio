@@ -377,6 +377,7 @@ async function performLogin(page, credentials, targetOrigin) {
       };
     }).catch(() => null);
     console.log(`[capture] login diag: ${diag ? JSON.stringify(diag) : "n/a"}`);
+  }
     
   
   // Login form accepted, but the SPA still needs a beat to exchange the
