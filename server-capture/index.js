@@ -183,31 +183,7 @@ app.post("/capture", requireSecret, (req, res) => {
     plan = body.plan;
   }
 
-// When the caller supplies credentials but no explicit plan, build a fixed
-// distinct-route walkthrough of the authenticated tool pages so the recording
-// shows each tool once (no repeated frames) instead of drifting/looping the
-// few public pages the auto-crawler can safely reach.
-if (plan === undefined && body.credentials !== undefined) {
-  let origin = TARGET_BASE_URL;
-  try { origin = new URL(url).origin; } catch (_e) { origin = TARGET_BASE_URL; }
-  const routes = [
-    "/dashboard",
-    "/quick-create",
-    "/ad-creator",
-    "/song-creator",
-    "/movie-maker",
-    "/media-library",
-  ];
-  const authPlan = [];
-  for (const route of routes) {
-    authPlan.push({ action: "goto", url: origin + route, ms: 2600 });
-    authPlan.push({ action: "scroll", ms: 2600 });
-  }
-  plan = authPlan;
-}
-
-
-  // Checked before touching credentials at all — no point encrypting
+// Checked before touching credentials at all — no point encrypting
   // something we're about to reject anyway.
   if (!claimConcurrencySlot(userId)) {
     return res.status(429).json({ error: "You already have a capture in progress. Please wait for it to finish." });

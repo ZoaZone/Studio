@@ -225,6 +225,12 @@ const LOGIN_NETWORKIDLE_TIMEOUT_MS = 8000;
 // can't loop indefinitely.
 const LOGIN_MAX_ATTEMPTS = 3;
 const SUBMIT_BUTTON_NAME_PATTERN = /sign ?in|log ?in|continue|submit/i;
+// After the login form is accepted, wait up to this long for the SPA to
+// exchange the session for its auth token (in localStorage) and hydrate the
+// user, so gated pages render unlocked rather than as a half-authenticated
+// shell. Then a short settle so the authenticated shell finishes painting.
+const AUTH_TOKEN_TIMEOUT_MS = 15000;
+const AUTH_HYDRATE_SETTLE_MS = 1500;
 
 // Waits for the page to settle after a submit: networkidle first (bounded,
 // so it can't hang on a page that never fully quiets down), then a short
@@ -338,6 +344,35 @@ async function performLogin(page, credentials, targetOrigin) {
     // follows.
     const passwordStillVisible = await passwordLocator.isVisible().catch(() => false);
     console.log(`[capture] login did not succeed — final url: ${redactUrl(page.url())}, password field still visible: ${passwordStillVisible}.`);
+  }
+  
+  // Login form accepted, but the SPA still needs a beat to exchange the
+  // session for its auth token and hydrate the user before any gated page
+  // (Movie Maker, Song Creator, etc.) will render unlocked. Without this the
+  // walkthrough races ahead and records a half-authenticated shell: an "M"
+  // avatar placeholder, Upgrade-to-Enterprise padlocks, and drift back to the
+  // logged-out landing page. Wait for the token to actually land (best effort
+  // — never throws, never logs the token, only whether it appeared).
+  if (success) {
+    const authed = await page
+    .waitForFunction(() => {
+      try {
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i) || "";
+          if (/base44|access_token|auth/i.test(k) && localStorage.getItem(k)) return true;
+        }
+      } catch (_e) {}
+      return false;
+    }, { timeout: AUTH_TOKEN_TIMEOUT_MS, polling: 250 })
+    .then(() => true)
+    .catch(() => false);
+    if (authed) {
+      await page.waitForLoadState("networkidle", { timeout: LOGIN_NETWORKIDLE_TIMEOUT_MS }).catch(() => {});
+      await page.waitForTimeout(AUTH_HYDRATE_SETTLE_MS);
+      log("auth token present — authenticated session hydrated, starting walkthrough.");
+    } else {
+      log("login succeeded but no auth token detected before timeout — continuing anyway.");
+    }
   }
   return success;
 }
@@ -653,7 +688,11 @@ async function finalizeRecording(video, workDir, onProgress) {
 // those pages' copy or structure changes, this step list needs updating
 // to match.
 
-const DEFAULT_DWELL_MS = 3000;
+const DEFAULT_DWELL_MS = 4500;
+// Global multiplier applied to every beat's dwell so the recording lingers
+// long enough on each screen to be readable (raised after early cuts felt
+// too fast to follow).
+const DWELL_SCALE = 1.4;
 // Interpolation steps for page.mouse.move — enough for a smooth, visible
 // glide between targets in the recording rather than a snap-cut jump.
 const CURSOR_MOVE_STEPS = 30;
@@ -875,7 +914,7 @@ async function runScriptedStep(page, step, baseUrl, currentPathRef) {
       console.log(`[capture] scripted action "${action.type} ${action.selector}" failed, continuing: ${e.message}`);
     });
   }
-  await page.waitForTimeout(step.dwellMs ?? DEFAULT_DWELL_MS);
+      await page.waitForTimeout(Math.round((step.dwellMs ?? DEFAULT_DWELL_MS) * DWELL_SCALE));
 }
 
 /**
