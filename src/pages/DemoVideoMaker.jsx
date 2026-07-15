@@ -9,6 +9,9 @@ import { base44 } from "@/api/base44Client";
 // function (no worker URL or shared secret ever touches this client code).
 import { generateText, generateImage, generateVoiceover, uploadFile, splitScriptIntoScenes, assembleLane1Video, submitCapture, getCaptureStatus } from "@/utils/lane1";
 import { VIDEO_RATIOS } from "@/utils/videoAssembler";
+// AI background music (MusicGen, paid Lane 2) — enabled for the walkthrough
+// so "Music" mode generates a track instead of shipping silent.
+import { generateMusic } from "@/utils/lane2";
 import {
   Globe, Loader2, Sparkles, Monitor, Wand2, Play, Square, Download, Save,
   CheckCircle2, AlertTriangle, Mic, ExternalLink, RefreshCw, Music, VolumeX,
@@ -171,17 +174,27 @@ export default function DemoVideoMaker() {
       }
 
       let voiceoverUrl;
-      const finalMusicUrl = musicUrl || undefined;
+      let finalMusicUrl = musicUrl || undefined;
       if (audioMode === "voiceover") {
         setStatusMsg("Generating voiceover...");
         const blob = await generateVoiceover(scenes.map(s => s.text).join(". "));
         if (blob) voiceoverUrl = await uploadFile(new File([blob], "demo-vo.mp3", { type: blob.type || "audio/mpeg" }));
         else setWarnings(prev => [...prev, "No voiceover was produced — shipping silent instead."]);
       } else if (audioMode === "music" && !finalMusicUrl) {
-        // Lane 1 has no AI music composer (that's MusicGen on Replicate —
-        // a paid Lane 2 call) — a track must be uploaded, otherwise ship
-        // silent instead of failing the whole generation.
-        setWarnings(prev => [...prev, "No music track uploaded — shipping silent. Upload a track above, or use Movie Maker Pro for AI-composed music."]);
+        // No track uploaded: generate AI background music (MusicGen, Lane 2).
+        setStatusMsg("Composing AI background music...");
+        const totalSeconds = scenes.reduce((s, sc) => s + (sc.seconds || 8), 0);
+        try {
+          const music = await generateMusic({
+            prompt: `Upbeat, modern, inspiring background music for a product demo about ${description || "an AI creative platform"}. Instrumental, no vocals.`,
+            durationSeconds: Math.min(Math.max(totalSeconds, 20), 120),
+            instrumental: true,
+          });
+          if (music?.url) finalMusicUrl = music.url;
+          else setWarnings(prev => [...prev, "AI music generation returned no track — shipping silent."]);
+        } catch (e) {
+          setWarnings(prev => [...prev, `AI music generation failed (${e?.message || "error"}) — shipping silent.`]);
+        }
       }
 
       setStatusMsg("Assembling video...");

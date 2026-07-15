@@ -69,7 +69,6 @@ export default [
       "src/utils/lane1.js",
       "src/pages/QuickCreate.jsx",
       "src/pages/CampaignStudio.jsx",
-      "src/pages/DemoVideoMaker.jsx",
     ],
     rules: {
       "no-restricted-imports": ["error", {
