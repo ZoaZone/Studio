@@ -378,6 +378,7 @@ async function performLogin(page, credentials, targetOrigin) {
     }).catch(() => null);
     console.log(`[capture] login diag: ${diag ? JSON.stringify(diag) : "n/a"}`);
   }
+
     
   
   // Login form accepted, but the SPA still needs a beat to exchange the
@@ -578,6 +579,28 @@ async function uploadResult(filePath) {
  * the target's and login page's origins only, for the duration of the
  * whole capture (see installNetworkSandbox) — a Phase 2-only restriction.
  */
+
+// Origins the sandbox must allow beyond the site itself: an app's login
+// and API calls frequently target a different backend host than the page
+// (e.g. a Base44 app served at digitalstudios.app authenticates against
+// base44.app). Returns the target's registrable domain and any subdomain
+// of it, plus the login origin and known platform backends. Kept generic
+// so this works for any app/platform, not just this one.
+function backendOriginsFor(targetOrigin, loginUrl) {
+  const origins = new Set();
+  const add = (u) => { try { origins.add(new URL(u).origin); } catch { } };
+  add(targetOrigin);
+  if (loginUrl) add(loginUrl);
+  // Known creative-platform backends that host auth/API for their apps.
+  const PLATFORM_BACKENDS = [
+    "https://base44.app",
+    "https://app.base44.com",
+    "https://base44.com",
+  ];
+  for (const b of PLATFORM_BACKENDS) origins.add(b);
+  return origins;
+}
+
 export async function runCapture(spec, onProgress = () => { }, credentials = null) {
   const targetUrl = normalizeUrl(spec?.url);
   if (!targetUrl) throw new Error("A valid http(s) url is required.");
@@ -601,6 +624,12 @@ export async function runCapture(spec, onProgress = () => { }, credentials = nul
 
     if (credentials) {
       const allowedOrigins = new Set([targetOrigin]);
+      // The app's own auth/API backend runs on a different origin than the site
+      // itself (e.g. a Base44 app at digitalstudios.app calls base44.app to log
+      // in). The network sandbox must allow those, or the login fetch is aborted
+      // and surfaces as a "Network Error". Allow the target's own registrable
+      // domain + subdomains, plus known platform backends, generically.
+      for (const o of backendOriginsFor(targetOrigin, credentials.loginUrl)) allowedOrigins.add(o);
       const loginUrl = normalizeUrl(credentials.loginUrl);
       if (loginUrl) allowedOrigins.add(new URL(loginUrl).origin);
       await installNetworkSandbox(context, allowedOrigins);
