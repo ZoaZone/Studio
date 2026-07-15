@@ -302,6 +302,24 @@ async function checkLoginSuccess(page, credentials) {
 // (typically with an error) that needs a second submit to actually go
 // through — before falling through to the tolerant, grace-rechecked
 // success determination.
+// Sets a value on a (possibly React-controlled) input so its onChange fires and
+// // component state updates — otherwise a `disabled={!email||!password}` submit
+// button stays disabled and the click is a no-op. Falls back to fill() on error.
+async function reactSafeFill(locator, value) {
+  const v = String(value ?? "");
+  await locator.fill(v).catch(() => {});
+  await locator.evaluate((el, val) => {
+    const proto = el instanceof HTMLTextAreaElement
+    ? HTMLTextAreaElement.prototype
+    : HTMLInputElement.prototype;
+    const setter = Object.getOwnPropertyDescriptor(proto, "value")?.set;
+    if (setter) setter.call(el, val);
+    else el.value = val;
+    el.dispatchEvent(new Event("input", { bubbles: true }));
+    el.dispatchEvent(new Event("change", { bubbles: true }));
+  }, v).catch(() => {});
+}
+
 async function performLogin(page, credentials, targetOrigin) {
   const loginUrl = normalizeUrl(credentials.loginUrl) || targetOrigin;
   await page.goto(loginUrl, { waitUntil: "networkidle", timeout: GOTO_TIMEOUT_MS });
@@ -318,9 +336,9 @@ async function performLogin(page, credentials, targetOrigin) {
   for (let attempt = 1; attempt <= LOGIN_MAX_ATTEMPTS; attempt++) {
     const usernameLocator = page.locator(usernameSelector).first();
     if (await usernameLocator.isVisible({ timeout: 2000 }).catch(() => false)) {
-      await usernameLocator.fill(String(credentials.username || "")).catch(() => { });
+      await reactSafeFill(usernameLocator, credentials.username || "");
     }
-    await passwordLocator.fill(String(credentials.password || "")).catch(() => { });
+    await reactSafeFill(passwordLocator, credentials.password || "");
 
     await submitLoginForm(page, credentials, passwordLocator);
     await settleAfterSubmit(page);
