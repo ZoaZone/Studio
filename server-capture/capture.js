@@ -362,7 +362,22 @@ async function performLogin(page, credentials, targetOrigin) {
     // follows.
     const passwordStillVisible = await passwordLocator.isVisible().catch(() => false);
     console.log(`[capture] login did not succeed — final url: ${redactUrl(page.url())}, password field still visible: ${passwordStillVisible}.`);
-  }
+    const diag = await page.evaluate(() => {
+      const norm = (s) => (s || "").replace(/\s+/g, " ").trim().slice(0, 200);
+      const err = document.querySelector('[role="alert"], .text-red-500, .text-red-400, .text-rose-500, .error, [class*="error"]');
+      const email = document.querySelector('input[type="email"]');
+      const pwd = document.querySelector('input[type="password"]');
+      const btn = document.querySelector('form button[type="submit"]');
+      return {
+        errorText: norm(err && err.textContent),
+        emailLen: email ? String(email.value || "").length : -1,
+        pwdLen: pwd ? String(pwd.value || "").length : -1,
+        btnDisabled: btn ? !!btn.disabled : null,
+        btnText: norm(btn && btn.textContent),
+      };
+    }).catch(() => null);
+    console.log(`[capture] login diag: ${diag ? JSON.stringify(diag) : "n/a"}`);
+    
   
   // Login form accepted, but the SPA still needs a beat to exchange the
   // session for its auth token and hydrate the user before any gated page
