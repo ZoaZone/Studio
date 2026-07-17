@@ -328,8 +328,18 @@ async function performLogin(page, credentials, targetOrigin) {
   const passwordSelector = credentials.passwordField || 'input[type="password"]';
   const passwordLocator = page.locator(passwordSelector).first();
   await passwordLocator.waitFor({ state: "visible", timeout: 30000 }).catch(() => { });
-  if (!(await passwordLocator.isVisible({ timeout: 20000 }).catch(() => false))) return false;
-
+  if (!(await passwordLocator.isVisible({ timeout: 20000 }).catch(() => false))) {
+    const diag = await page.evaluate(() => {
+      const norm = (s) => (s || "").replace(/\s+/g, " ").trim().slice(0, 200);
+      return {
+        inputs: Array.from(document.querySelectorAll("input")).map((el) => norm((el.type || "") + "#" + (el.name || "") + "." + (el.id || ""))).slice(0, 12),
+        buttons: Array.from(document.querySelectorAll("button, [role=button]")).map((el) => norm(el.textContent)).filter(Boolean).slice(0, 8),
+      };
+    }).catch(() => ({}));
+    console.log("[capture] login: password field not found on " + redactUrl(page.url()) + " using selector " + JSON.stringify(passwordSelector) + ". inputs=" + JSON.stringify(diag.inputs || []) + " buttons=" + JSON.stringify(diag.buttons || []));
+    return false;
+  }
+  
   const usernameSelector = credentials.usernameField
     || 'input[type="email"], input[type="text"][name*="user" i], input[type="text"][name*="email" i], input[name*="email" i], input[name*="user" i]';
 
