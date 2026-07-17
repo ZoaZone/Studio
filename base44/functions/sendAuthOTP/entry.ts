@@ -64,7 +64,8 @@ Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
     const payload = await req.json().catch(() => ({}));
-    const { action, email, otp: submittedOTP, purpose = 'login' } = payload;
+    const { action, email: rawEmail, otp: submittedOTP, purpose = 'login' } = payload;
+    const email = String(rawEmail || '').trim().toLowerCase();
 
     if (!email) {
       return Response.json({ error: 'email is required' }, { status: 400, headers });
