@@ -8,7 +8,7 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
  *   Domain: digitalstudios.app — verified & active in Resend ✅
  *
  * Fallback: SendGrid (SENDGRID_API_KEY)
- *   From:   SENDGRID_FROM_EMAIL env var (default: noreply@aevoice.ai)
+ *   From:   SENDGRID_FROM_EMAIL env var (default: noreply@digitalstudios.app)
  *
  * Set env vars:
  *   RESEND_API_KEY       — your Resend API key
@@ -91,7 +91,7 @@ Deno.serve(async (req) => {
       throw new Error('No email provider available. Set RESEND_API_KEY or SENDGRID_API_KEY.');
     }
 
-    const sgFromEmail = Deno.env.get('SENDGRID_FROM_EMAIL') || 'noreply@aevoice.ai';
+  const sgFromEmail = Deno.env.get('SENDGRID_FROM_EMAIL') || 'noreply@digitalstudios.app';
     const sgRes = await fetch('https://api.sendgrid.com/v3/mail/send', {
       method: 'POST',
       headers: { Authorization: 'Bearer ' + sendgridKey, 'Content-Type': 'application/json' },
