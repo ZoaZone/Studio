@@ -159,6 +159,14 @@ export default function DemoVideoMaker() {
     try {
       const sceneScripts = splitScriptIntoScenes(script, 4);
       const scenes = [];
+      const sceneStyles = [
+        "wide establishing hero shot, bright airy lighting, spacious composition",
+        "close-up detail shot, shallow depth of field, warm accent lighting",
+        "dynamic three-quarter angle, bold contrasting colors, energetic composition",
+        "clean flat-lay top-down layout, soft even lighting, minimalist negative space",
+        "over-the-shoulder perspective, cinematic teal-and-orange grade, sense of motion",
+        "isometric illustrative style, cool gradient palette, structured grid layout",
+      ];
       for (let i = 0; i < sceneScripts.length; i++) {
         setStatusMsg(`Generating scene ${i + 1} of ${sceneScripts.length}...`);
         setProgress((i / sceneScripts.length) * 0.4);
@@ -167,8 +175,9 @@ export default function DemoVideoMaker() {
           // Open on a real screenshot of the scanned URL, not a generic AI image.
           imgUrl = screenshotUrl;
         } else {
-          const context = description ? `Context: ${description}. ` : "";
-          imgUrl = await generateImage({ prompt: `${context}Create a clean, modern marketing visual representing: ${sceneScripts[i].text}` });
+          const context = description ? ("Brand context: " + description + ". ") : "";
+          const style = sceneStyles[i % sceneStyles.length];
+          imgUrl = await generateImage({ prompt: context + "Distinct marketing visual for scene " + (i + 1) + " of a product walkthrough. " + style + ". Depict specifically: " + sceneScripts[i].text + ". No text, no words, no captions in the image.", referenceImageUrls: screenshotUrl ? [screenshotUrl] : [] });
         }
         scenes.push({ imageUrl: imgUrl, text: sceneScripts[i].text, seconds: 8 });
       }
