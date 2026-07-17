@@ -331,6 +331,7 @@ async function reactSafeFill(locator, value) {
 async function performLogin(page, credentials, targetOrigin) {
   const loginUrl = normalizeUrl(credentials.loginUrl) || targetOrigin;
   await page.goto(loginUrl, { waitUntil: "networkidle", timeout: GOTO_TIMEOUT_MS });
+  page.on("response", (resp) => { try { const st = resp.status(); if (st >= 400) console.log("[capture] auth-resp " + st + " " + redactUrl(resp.url())); } catch (e) {} });
   await declineCookieBanner(page);
 
   const passwordSelector = credentials.passwordField || 'input[type="password"]';
@@ -357,6 +358,8 @@ async function performLogin(page, credentials, targetOrigin) {
       await reactSafeFill(usernameLocator, credentials.username || "");
     }
     await reactSafeFill(passwordLocator, credentials.password || "");
+    await passwordLocator.evaluate((el) => el.blur()).catch(() => {});
+    await page.waitForTimeout(400);
 
     await submitLoginForm(page, credentials, passwordLocator);
     await settleAfterSubmit(page);
