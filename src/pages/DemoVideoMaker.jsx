@@ -11,7 +11,8 @@ import { generateText, generateImage, generateVoiceover, uploadFile, splitScript
 import { VIDEO_RATIOS } from "@/utils/videoAssembler";
 // AI background music (MusicGen, paid Lane 2) — enabled for the walkthrough
 // so "Music" mode generates a track instead of shipping silent.
-import { generateMusic } from "@/utils/lane2";
+import { generateMusic, generateSceneVideo, submitRender, getRenderStatus } from "@/utils/lane2";
+import { isRealVideoEntitled } from "@/utils/entitlements";
 import {
   Globe, Loader2, Sparkles, Monitor, Wand2, Play, Square, Download, Save,
   CheckCircle2, AlertTriangle, Mic, ExternalLink, RefreshCw, Music, VolumeX,
@@ -206,12 +207,46 @@ export default function DemoVideoMaker() {
         }
       }
 
-      setStatusMsg("Assembling video...");
-      const hostedUrl = await assembleLane1Video({
-        scenes, ratio, resolution,
-        audioMode: (audioMode === "voiceover" && !voiceoverUrl) || (audioMode === "music" && !finalMusicUrl) ? "silent" : audioMode,
-        voiceoverUrl, musicUrl: finalMusicUrl,
-      }, { onProgress: (p) => setProgress(0.4 + p * 0.6) });
+let realVideo = false;
+try {
+  const me = await base44.auth.me();
+  const subs = await base44.entities.Subscription.filter({ owner_email: me?.email }, null, 1);
+  realVideo = isRealVideoEntitled(Array.isArray(subs) ? subs[0] : subs);
+} catch (_e) { realVideo = false; }
+
+let hostedUrl;
+const effectiveAudioMode = (audioMode === "voiceover" && !voiceoverUrl) || (audioMode === "music" && !finalMusicUrl) ? "silent" : audioMode;
+if (realVideo) {
+  const videoScenes = [];
+  for (let i = 0; i < scenes.length; i++) {
+    setStatusMsg(`Generating motion for scene ${i + 1} of ${scenes.length}...`);
+    setProgress(0.4 + (i / scenes.length) * 0.35);
+    let clipUrl = null;
+    try {
+      const clip = await generateSceneVideo({ prompt: sceneScripts[i].text, imageUrl: scenes[i].imageUrl, durationSeconds: Math.max(4, Math.round(scenes[i].seconds || 5)) });
+      clipUrl = typeof clip === "string" ? clip : (clip && (clip.url || clip.videoUrl)) || null;
+    } catch (_e) { clipUrl = null; }
+    videoScenes.push({ imageUrl: scenes[i].imageUrl, videoUrl: clipUrl, seconds: scenes[i].seconds, subtitle: scenes[i].text });
+  }
+  setStatusMsg("Rendering your video...");
+  const jobId = await submitRender({ scenes: videoScenes, audioMode: effectiveAudioMode, voiceoverUrl, musicUrl: finalMusicUrl, burnSubtitles: true });
+  const startedAt = Date.now();
+  while (true) {
+    if (Date.now() - startedAt > CAPTURE_TIMEOUT_MS) throw new Error("Video render timed out. Please try again.");
+    const job = await getRenderStatus(jobId);
+    if (job && typeof job.progress === "number") setProgress(0.75 + job.progress * 0.25);
+    if (job && job.status === "done") { hostedUrl = job.url; break; }
+    if (job && job.status === "error") throw new Error(job.error || "Video render failed.");
+    await new Promise((res) => setTimeout(res, CAPTURE_POLL_MS));
+  }
+} else {
+  setStatusMsg("Assembling video...");
+  hostedUrl = await assembleLane1Video({
+    scenes, ratio, resolution,
+    audioMode: effectiveAudioMode,
+    voiceoverUrl, musicUrl: finalMusicUrl,
+  }, { onProgress: (p) => setProgress(0.4 + p * 0.6) });
+}
       setProgress(1);
       setWalkthroughResult({ url: hostedUrl });
     } catch (e) {
