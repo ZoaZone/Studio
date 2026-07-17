@@ -207,8 +207,16 @@ async function installNetworkSandbox(context, allowedOrigins) {
       route.abort();
       return;
     }
-    if (allowedOrigins.has(origin)) route.continue();
-    else route.abort();
+    const allowedHosts = new Set([...allowedOrigins].map((o) => { try { return new URL(o).hostname; } catch { return ""; } }));
+    let host = ""; try { host = new URL(origin).hostname; } catch { host = ""; }
+    let ok = allowedOrigins.has(origin);
+    if (!ok && host) { for (const h of allowedHosts) { if (h && (host === h || host.endsWith("." + h))) { ok = true; break; } } }
+    if (ok) route.continue();
+    else {
+      if (!globalThis.__blk) globalThis.__blk = new Set();
+      if (!globalThis.__blk.has(origin)) { globalThis.__blk.add(origin); console.log("[capture] sandbox blocked origin " + redactUrl(origin)); }
+      route.abort();
+    }
   });
 }
 
@@ -645,7 +653,7 @@ export async function runCapture(spec, onProgress = () => { }, credentials = nul
       await installNetworkSandbox(context, allowedOrigins);
 
       log("attempting authenticated login before the walkthrough.");
-      const loginOk = await performLogin(page, credentials, targetOrigin).catch(() => false);
+      const loginOk = await performLogin(page, credentials, targetOrigin).catch((e) => { log("performLogin error: " + redactUrl(String((e && e.message) || e || "unknown"))); return false; });
       if (!loginOk) {
         log("login failed — aborting capture, discarding recording.");
         await context.close();
