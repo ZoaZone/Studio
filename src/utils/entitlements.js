@@ -14,3 +14,15 @@ export function isByokEntitled(subscription) {
     && ["active", "trialing"].includes(subscription.status)
     && BYOK_ENTITLED_TIERS.includes(subscription.plan_tier);
 }
+
+// Real (Lane 2) motion video for the AI Walkthrough is a paid feature.
+// Higher tiers get true generated video; free / low tiers fall back to
+// the standard Lane 1 still-image (Ken Burns) walkthrough. Same "real,
+// active subscription" test as Billing.jsx's isPaidPlan (any non-free
+// tier with an active or trialing subscription).
+export function isRealVideoEntitled(subscription) {
+  return !!subscription
+  && ["active", "trialing"].includes(subscription.status)
+  && subscription.plan_tier
+  && subscription.plan_tier !== "free";
+}
