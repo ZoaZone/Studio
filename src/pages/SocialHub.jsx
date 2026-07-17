@@ -267,11 +267,21 @@ HASHTAGS:
       // If "Post Now" — trigger publish for each
       if (wiz.postNow) {
         const newPosts = await base44.entities.ScheduledPost.filter(mine(user), "-created_date", wiz.selectedPlatforms.length);
+        const failures = [];
         for (const p of newPosts.slice(0, wiz.selectedPlatforms.length)) {
           try {
-            await base44.functions.invoke("publishScheduledPosts", { post_id: p.id });
-          } catch (_) {}
+            const res = await base44.functions.invoke("publishScheduledPosts", { post_id: p.id });
+            const data = res?.data || res || {};
+            const failed = (data.results || []).filter((r) => r && r.status === "failed");
+            failed.forEach((r) => failures.push((r.platform || p.platform) + ": " + (r.error || "Publish failed")));
+          } catch (e) {
+            failures.push((p.platform || "Post") + ": " + (e?.message || "Publish failed"));
+          }
         }
+        if (failures.length > 0) {
+          alert("Some posts did not publish:\n\n" + failures.join("\n"));
+        }
+      }
       }
 
       qc.invalidateQueries(["scheduled_posts"]);
