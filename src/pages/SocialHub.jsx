@@ -282,8 +282,7 @@ HASHTAGS:
           alert("Some posts did not publish:\n\n" + failures.join("\n"));
         }
       }
-      }
-
+      
       qc.invalidateQueries(["scheduled_posts"]);
       setShowWizard(false);
       resetWizard();
