@@ -173,6 +173,7 @@ export default function MovieMaker() {
   // immediately after a generate() call fires (see handleGenerateDemo)
   // rather than lingering in state for the rest of the session.
   const [showDemoLogin, setShowDemoLogin] = useState(false);
+  const [useDemoSessionToken, setUseDemoSessionToken] = useState(false);
   const [showDemoLoginAdvanced, setShowDemoLoginAdvanced] = useState(false);
   const [demoLoginUrl, setDemoLoginUrl] = useState("");
   const [demoUsername, setDemoUsername] = useState("");
@@ -195,7 +196,7 @@ export default function MovieMaker() {
           password: demoPassword,
         }
       : undefined;
-    autoDemo.generate(demoUrl, { credentials, consented: demoLoginConsent });
+    autoDemo.generate(demoUrl, { credentials, consented: demoLoginConsent, useSessionToken: useDemoSessionToken || undefined });
     // The password (and username) only ever need to exist in state for
     // this one submit — clear them immediately rather than leaving them
     // sitting in memory/React DevTools for the rest of the session.
@@ -1065,13 +1066,22 @@ export default function MovieMaker() {
                 </button>
               </div>
 
-              <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground cursor-pointer w-fit">
-                <input type="checkbox" checked={showDemoLogin}
-                  onChange={e => setShowDemoLogin(e.target.checked)}
-                  disabled={!AUTO_DEMO_IDLE_PHASES.includes(autoDemo.phase)}
-                  className="accent-cyan-500" />
-                <Lock className="w-3 h-3" /> This page requires login (optional)
-              </label>
+              <div className="flex items-center gap-4 flex-wrap">
+                <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground cursor-pointer w-fit">
+                  <input type="checkbox" checked={showDemoLogin}
+                    onChange={e => setShowDemoLogin(e.target.checked)}
+                    disabled={!AUTO_DEMO_IDLE_PHASES.includes(autoDemo.phase) || useDemoSessionToken}
+                    className="accent-cyan-500" />
+                  <Lock className="w-3 h-3" /> This page requires login (optional)
+                </label>
+                <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground cursor-pointer w-fit" title="Uses your current login session — works for Base44 apps that use email-OTP auth (no password needed)">
+                  <input type="checkbox" checked={useDemoSessionToken}
+                    onChange={e => setUseDemoSessionToken(e.target.checked)}
+                    disabled={!AUTO_DEMO_IDLE_PHASES.includes(autoDemo.phase) || showDemoLogin}
+                    className="accent-cyan-500" />
+                  <Sparkles className="w-3 h-3" /> Use my current session (Base44 apps)
+                </label>
+              </div>
 
               {showDemoLogin && (
                 <div className="p-3 rounded-xl bg-background border border-border space-y-2.5">

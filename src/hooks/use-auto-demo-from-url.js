@@ -73,7 +73,7 @@ export function useAutoDemoFromUrl(user) {
     cancelledRef.current = true;
   }, []);
 
-  const generate = useCallback(async (rawUrl, { credentials, consented } = {}) => {
+  const generate = useCallback(async (rawUrl, { credentials, consented, useSessionToken } = {}) => {
     if (!user?.email) return;
     const url = String(rawUrl || "").trim();
     if (!url) { setError("Enter a URL first."); return; }
@@ -93,14 +93,16 @@ export function useAutoDemoFromUrl(user) {
 
     cancelledRef.current = false;
     setPhase("capturing");
-    setStepLabel(credentials ? "Starting the walkthrough capture (logging in first)…" : "Starting the walkthrough capture…");
+    setStepLabel(useSessionToken ? "Starting the walkthrough capture (using your session)…" : credentials ? "Starting the walkthrough capture (logging in first)…" : "Starting the walkthrough capture…");
     setPercent(0);
     setError("");
     setWarnings([]);
     setResult(null);
 
     try {
-      const captureId = await submitCapture(credentials ? { url, credentials } : { url });
+      const captureId = await submitCapture(
+        useSessionToken ? { url, useSessionToken: true } : credentials ? { url, credentials } : { url }
+      );
 
       let capture = null;
       const captureStartedAt = Date.now();
@@ -127,7 +129,7 @@ export function useAutoDemoFromUrl(user) {
           // that: it substitutes its own fixed message rather than ever
           // surfacing anything the worker sent for this status.
           setPhase("login_failed");
-          setError("Login failed. Please double-check the credentials and try again.");
+          setError("Login failed. The target site may use email-OTP or magic-link auth (no password login). If this is your own Base44 app, try 'Use my current session' instead.");
           return;
         }
         if (job?.status === "error") throw new Error(job.error || "Capturing the walkthrough failed.");

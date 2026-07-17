@@ -220,6 +220,21 @@ async function installNetworkSandbox(context, allowedOrigins) {
   });
 }
 
+// Injects a pre-existing Base44 access token into the browser context's
+// localStorage via addInitScript, so the app sees an already-authenticated
+// session without going through a login form. This is the OTP-compatible
+// alternative to performLogin: the user already authenticated (via OTP,
+// password, or whatever their app uses), and we're transferring that session
+// to the headless browser rather than trying to re-create it with
+// credentials a headless bot can't use (e.g. an OTP code sent by email).
+// addInitScript runs before any page script on every navigation, so the
+// token is in localStorage before the app's auth check runs.
+async function injectSessionToken(context, authToken) {
+  await context.addInitScript((token) => {
+    try { localStorage.setItem("base44_access_token", token); } catch (_e) { }
+  }, authToken);
+}
+
 const LOGIN_SETTLE_MS = 2500;
 // Bounded wait for network activity to quiet down after a submit — a
 // redirect or SPA re-render needs this to actually finish before the
@@ -622,7 +637,7 @@ function backendOriginsFor(targetOrigin, loginUrl) {
   return origins;
 }
 
-export async function runCapture(spec, onProgress = () => { }, credentials = null) {
+export async function runCapture(spec, onProgress = () => { }, credentials = null, authToken = null) {
   const targetUrl = normalizeUrl(spec?.url);
   if (!targetUrl) throw new Error("A valid http(s) url is required.");
   const targetOrigin = new URL(targetUrl).origin;
@@ -643,7 +658,17 @@ export async function runCapture(spec, onProgress = () => { }, credentials = nul
 
     const deadline = Date.now() + CAPTURE_MAX_SECONDS * 1000;
 
-    if (credentials) {
+    if (authToken) {
+      // Session-token injection: the user is already authenticated, so
+      // inject their access token into localStorage and skip the login
+      // form entirely. Same network sandbox as credentials mode — the
+      // target's API calls still need to be allowed through.
+      const allowedOrigins = new Set([targetOrigin]);
+      for (const o of backendOriginsFor(targetOrigin, null)) allowedOrigins.add(o);
+      await installNetworkSandbox(context, allowedOrigins);
+      await injectSessionToken(context, authToken);
+      log("injected session token — skipping login form.");
+    } else if (credentials) {
       const allowedOrigins = new Set([targetOrigin]);
       // The app's own auth/API backend runs on a different origin than the site
       // itself (e.g. a Base44 app at digitalstudios.app calls base44.app to log
@@ -1046,7 +1071,8 @@ async function runScriptedStep(page, step, baseUrl, currentPathRef) {
 export async function runAppDemoWalkthrough(
   onProgress = () => { },
   baseUrl = process.env.TARGET_BASE_URL || "https://digitalstudios.app",
-  credentials = null
+  credentials = null,
+  authToken = null
 ) {
   const log = (msg) => console.log(`[capture] ${msg}`);
   const workDir = await fs.mkdtemp(path.join(os.tmpdir(), "capture-"));
@@ -1062,7 +1088,14 @@ export async function runAppDemoWalkthrough(
     const page = await context.newPage();
     page.on("download", (d) => { d.cancel().catch(() => { }); });
 
-    if (credentials) {
+    if (authToken) {
+      const targetOrigin = new URL(baseUrl).origin;
+      const allowedOrigins = new Set([targetOrigin]);
+      for (const o of backendOriginsFor(targetOrigin, null)) allowedOrigins.add(o);
+      await installNetworkSandbox(context, allowedOrigins);
+      await injectSessionToken(context, authToken);
+      log("injected session token — skipping login form for app-demo walkthrough.");
+    } else if (credentials) {
       const targetOrigin = new URL(baseUrl).origin;
       const allowedOrigins = new Set([targetOrigin]);
       const loginUrl = normalizeUrl(credentials.loginUrl);
@@ -1084,7 +1117,7 @@ export async function runAppDemoWalkthrough(
     // ordering rationale as runCapture).
     await installSafetyGuards(context);
 
-    const steps = credentials ? DIGITAL_STUDIOS_AUTHENTICATED_DEMO_STEPS : DIGITAL_STUDIOS_DEMO_STEPS;
+    const steps = (credentials || authToken) ? DIGITAL_STUDIOS_AUTHENTICATED_DEMO_STEPS : DIGITAL_STUDIOS_DEMO_STEPS;
     const currentPathRef = { value: null };
     // Measured wall-clock time per step (goto + actions + dwell, not just
     // the nominal dwellMs) — this is what the voiceover track actually

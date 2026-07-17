@@ -103,9 +103,13 @@ async function processQueue() {
   // zeroed/discarded in the finally block below regardless of outcome —
   // never held any longer than the single runCapture() call requires.
   let credentials = null;
+  let authToken = null;
   try {
     if (job.encryptedCredentials) {
       credentials = decryptCredentials(job.encryptedCredentials);
+    }
+    if (job.encryptedAuthToken) {
+      authToken = decryptCredentials(job.encryptedAuthToken).token || null;
     }
 
     const onProgress = (update) => {
@@ -116,8 +120,8 @@ async function processQueue() {
     };
 
     const result = next.kind === "appDemo"
-      ? await runAppDemoWalkthrough(onProgress, TARGET_BASE_URL, credentials)
-      : await runCapture(next.spec, onProgress, credentials);
+      ? await runAppDemoWalkthrough(onProgress, TARGET_BASE_URL, credentials, authToken)
+      : await runCapture(next.spec, onProgress, credentials, authToken);
 
     if (result.status === "login_required") {
       job.status = "login_required";
@@ -126,7 +130,7 @@ async function processQueue() {
       // Deliberately generic — never echoes which field failed or any
       // credential value, per the "return a generic login failed" rule.
       job.status = "login_failed";
-      job.error = "Login failed. Please check the credentials and try again.";
+      job.error = "Login failed. The target site may use email-OTP or magic-link auth (no password login). If this is your own Base44 app, try 'Use my current session' instead of entering credentials.";
     } else {
       job.status = "done";
       job.progress = 1;
@@ -143,10 +147,13 @@ async function processQueue() {
   } finally {
     if (credentials) zeroCredentials(credentials);
     credentials = null;
+    if (authToken) authToken = null;
     // Consumed exactly once — even if this job is somehow retried, it can
     // never be decrypted again after this point.
     job.encryptedCredentials = null;
     delete job.encryptedCredentials;
+    job.encryptedAuthToken = null;
+    delete job.encryptedAuthToken;
     releaseConcurrencySlot(job.userId || "anonymous");
     processing = false;
     processQueue();
@@ -211,6 +218,20 @@ app.post("/capture", requireSecret, (req, res) => {
     }
   }
 
+  let encryptedAuthToken = null;
+  if (body.authToken) {
+    if (!credentialEncryptionAvailable()) {
+      releaseConcurrencySlot(userId);
+      return res.status(503).json({ error: "Authenticated capture is not available right now." });
+    }
+    try {
+      encryptedAuthToken = encryptCredentials({ token: body.authToken });
+    } catch (_e) {
+      releaseConcurrencySlot(userId);
+      return res.status(503).json({ error: "Authenticated capture is not available right now." });
+    }
+  }
+
   const id = nanoid();
   jobs.set(id, {
     id,
@@ -224,13 +245,15 @@ app.post("/capture", requireSecret, (req, res) => {
     steps: null,
     hasCredentials: !!encryptedCredentials,
     encryptedCredentials,
+    hasAuthToken: !!encryptedAuthToken,
+    encryptedAuthToken,
     userId,
     error: null,
     createdAt: Date.now(),
   });
   queue.push({ id, kind: "capture", spec: { url, plan } });
 
-  console.log(`[capture] queued job ${id} for ${redactUrl(url)}${encryptedCredentials ? " (authenticated)" : ""}`);
+  console.log(`[capture] queued job ${id} for ${redactUrl(url)}${encryptedCredentials ? " (authenticated)" : encryptedAuthToken ? " (session-token)" : ""}`);
   res.status(202).json({ captureId: id });
   processQueue();
 });
@@ -261,10 +284,10 @@ app.post("/app-demo", requireSecret, (req, res) => {
   // to log into otherwise, and the public tour is already the default
   // (authenticated: false or omitted) that needs no credentials at all.
   let encryptedCredentials = null;
-  if (authenticated) {
+  if (authenticated && !body.authToken) {
     if (!body.credentials || typeof body.credentials !== "object" || !body.credentials.password) {
       releaseConcurrencySlot(userId);
-      return res.status(400).json({ error: "authenticated: true requires credentials with at least a password." });
+      return res.status(400).json({ error: "authenticated: true requires credentials or an authToken." });
     }
     if (!credentialEncryptionAvailable()) {
       releaseConcurrencySlot(userId);
@@ -272,6 +295,20 @@ app.post("/app-demo", requireSecret, (req, res) => {
     }
     try {
       encryptedCredentials = encryptCredentials(body.credentials);
+    } catch (_e) {
+      releaseConcurrencySlot(userId);
+      return res.status(503).json({ error: "Authenticated capture is not available right now." });
+    }
+  }
+
+  let encryptedAuthToken = null;
+  if (body.authToken) {
+    if (!credentialEncryptionAvailable()) {
+      releaseConcurrencySlot(userId);
+      return res.status(503).json({ error: "Authenticated capture is not available right now." });
+    }
+    try {
+      encryptedAuthToken = encryptCredentials({ token: body.authToken });
     } catch (_e) {
       releaseConcurrencySlot(userId);
       return res.status(503).json({ error: "Authenticated capture is not available right now." });
@@ -291,13 +328,15 @@ app.post("/app-demo", requireSecret, (req, res) => {
     steps: null,
     hasCredentials: !!encryptedCredentials,
     encryptedCredentials,
+    hasAuthToken: !!encryptedAuthToken,
+    encryptedAuthToken,
     userId,
     error: null,
     createdAt: Date.now(),
   });
   queue.push({ id, kind: "appDemo" });
 
-  console.log(`[capture] queued app-demo job ${id}${encryptedCredentials ? " (authenticated)" : " (public)"}`);
+  console.log(`[capture] queued app-demo job ${id}${encryptedCredentials ? " (authenticated)" : encryptedAuthToken ? " (session-token)" : " (public)"}`);
   res.status(202).json({ captureId: id });
   processQueue();
 });
@@ -326,6 +365,7 @@ app.get("/captures/:id", requireSecret, (req, res) => {
     pageInfo: job.pageInfo,
     steps: job.steps,
     hasCredentials: job.hasCredentials,
+    hasAuthToken: job.hasAuthToken,
     error: job.error,
     createdAt: job.createdAt,
   });
