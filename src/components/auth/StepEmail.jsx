@@ -14,9 +14,10 @@ export default function StepEmail({ onNext, purpose }) {
     e.preventDefault();
     setError("");
     setLoading(true);
+    const normalizedEmail = email.trim().toLowerCase();
     try {
-      await base44.functions.invoke("sendAuthOTP", { action: "send", email, purpose });
-      onNext(email);
+      await base44.functions.invoke("sendAuthOTP", { action: "send", email: normalizedEmail, purpose });
+      onNext(normalizedEmail);
     } catch (err) {
       setError(err?.response?.data?.error || err?.message || "Failed to send code. Please try again.");
     } finally {
