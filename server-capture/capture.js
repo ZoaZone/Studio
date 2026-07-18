@@ -1023,7 +1023,11 @@ async function runScriptedStep(page, step, baseUrl, currentPathRef) {
       console.log(`[capture] scripted action "${action.type} ${action.selector}" failed, continuing: ${e.message}`);
     });
   }
-      await page.waitForTimeout(Math.round((step.dwellMs ?? DEFAULT_DWELL_MS) * DWELL_SCALE));
+  const baseDwell = Math.round((step.dwellMs ?? DEFAULT_DWELL_MS) * DWELL_SCALE);
+  const narrationText = typeof step.narration === "string" ? step.narration : "";
+  const narrationWords = narrationText.trim() ? narrationText.trim().split(/\s+/).length : 0;
+  const narrationDwell = narrationWords > 0 ? Math.round((narrationWords / 2.6) * 1000) + 900 : 0;
+  await page.waitForTimeout(Math.max(baseDwell, narrationDwell));
 }
 
 /**
