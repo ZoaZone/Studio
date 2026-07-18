@@ -31,7 +31,7 @@ export default function AppLayout() {
     byok: 4,
   };
   const userTier = TIER_MAP[subscription?.plan_tier] || 0;
-  const isAdmin = user?.role === "admin";
+  const isAdmin = String(user?.role || "").trim().toLowerCase() === "admin";
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
