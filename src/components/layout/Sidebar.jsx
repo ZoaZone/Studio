@@ -147,7 +147,7 @@ export default function Sidebar({ userTier = 0, isAdmin = false, user = null }) 
               <div className="mt-0.5 space-y-0.5">
                 {section.items.map(item => {
                   const isActive = location.pathname === item.to;
-                  const isLocked = item.minTier && userTier < item.minTier;
+                  const isLocked = !isAdmin && item.minTier && userTier < item.minTier;
                   return (
                     <Link key={item.to} to={item.to} onClick={() => setMobileOpen(false)}
                       className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all group ${
